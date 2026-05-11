@@ -1,0 +1,2 @@
+# Node 2 (llm-02) - Inference node models
+qwen2.5:32b-instruct-q4_K_M

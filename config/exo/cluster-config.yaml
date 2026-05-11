@@ -1,0 +1,22 @@
+cluster:
+  name: "mac-llm-cluster"
+
+  nodes:
+    - id: "llm-01"
+      host: "llm-01.local"
+      port: 5678
+      gpu: true
+    - id: "llm-02"
+      host: "llm-02.local"
+      port: 5678
+      gpu: true
+    - id: "llm-03"
+      host: "llm-03.local"
+      port: 5678
+      gpu: true
+
+model:
+  name: "Qwen/Qwen3-30B-A3B"
+  quantization: "q5_K_M"
+  kv_cache_type: "q16_0"
+  context_size: 65536  # 64K context

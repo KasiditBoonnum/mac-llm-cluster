@@ -1,0 +1,6 @@
+# Add to /etc/hosts on llm-01 for IP fallback
+# Use IP addresses when mDNS (.local) fails
+
+192.168.10.11   llm-01 llm-01.local
+192.168.10.12   llm-02 llm-02.local
+192.168.10.13   llm-03 llm-03.local

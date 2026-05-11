@@ -1,0 +1,6 @@
+# Add public keys here - one per line
+# Generate with: ssh-keygen -t ed25519 -C "llm-01-cluster-admin"
+# Copy with: ssh-copy-id -i ~/.ssh/id_ed25519.pub user@llm-02.local
+
+# Example:
+# ssh-ed25519 AAAA... user@llm-01

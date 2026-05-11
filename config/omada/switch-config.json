@@ -1,0 +1,14 @@
+{
+  "switch": "TP-Link Omada SX3008F",
+  "ports": [
+    {"port": 1, "device": "llm-01", "ip": "192.168.10.11", "speed": "10G", "mtu": 9000},
+    {"port": 2, "device": "llm-02", "ip": "192.168.10.12", "speed": "10G", "mtu": 9000},
+    {"port": 3, "device": "llm-03", "ip": "192.168.10.13", "speed": "10G", "mtu": 9000},
+    {"port": 4, "device": "uplink", "ip": "dhcp", "speed": "10G", "mtu": 1500}
+  ],
+  "settings": {
+    "flow_control": false,
+    "stp": false,
+    "jumbo_frames": true
+  }
+}
