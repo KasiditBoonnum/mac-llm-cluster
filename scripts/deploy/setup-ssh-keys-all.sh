@@ -27,27 +27,27 @@ cat > ~/.ssh/config << EOF
 
 Host llm-02
     HostName llm-02.local
-    User $USERNAME
+    User llm-02
     IdentityFile ~/.ssh/id_ed25519
     StrictHostKeyChecking accept-new
     ConnectTimeout 5
 
 Host llm-02-ip
     HostName 192.168.10.12
-    User $USERNAME
+    User llm-02
     IdentityFile ~/.ssh/id_ed25519
     StrictHostKeyChecking accept-new
 
 Host llm-03
     HostName llm-03.local
-    User $USERNAME
+    User llm-03
     IdentityFile ~/.ssh/id_ed25519
     StrictHostKeyChecking accept-new
     ConnectTimeout 5
 
 Host llm-03-ip
     HostName 192.168.10.13
-    User $USERNAME
+    User llm-03
     IdentityFile ~/.ssh/id_ed25519
     StrictHostKeyChecking accept-new
 EOF
