@@ -1,0 +1,42 @@
+/* ChatGPT-style interface for Open WebUI */
+
+.message.user {
+    background-color: #f7f7f8;
+    margin-left: auto;
+}
+
+.message.assistant {
+    background-color: #ffffff;
+    border: 1px solid #e5e5e5;
+}
+
+pre {
+    background-color: #000000 !important;
+    border-radius: 6px;
+    padding: 16px;
+}
+
+.send-button {
+    background-color: #10a37f;
+    border-radius: 6px;
+}
+
+.send-button:hover {
+    background-color: #0e8c6d;
+}
+
+/* Cluster status bar */
+#cluster-status {
+    font-size: 11px;
+    color: #888;
+    padding: 4px 8px;
+    background: #f0f0f0;
+    border-radius: 4px;
+}
+
+/* Tokens per second display */
+#tokens-per-second {
+    font-size: 12px;
+    font-weight: bold;
+    color: #10a37f;
+}

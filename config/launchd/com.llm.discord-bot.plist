@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.llm.discord-bot</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/YOUR_USERNAME/mac-llm-cluster/services/chatops/discord-bot-advanced.py</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>DISCORD_BOT_TOKEN</key>
+        <string>YOUR_TOKEN_HERE</string>
+        <key>LLM_API_KEY</key>
+        <string>YOUR_API_KEY_HERE</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/discord-bot.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/discord-bot.err</string>
+</dict>
+</plist>

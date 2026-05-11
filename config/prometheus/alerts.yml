@@ -1,0 +1,34 @@
+groups:
+  - name: cluster_alerts
+    rules:
+      - alert: NodeDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.instance }} is down"
+
+      - alert: HighCPU
+        expr: mac_cpu_usage_percent > 95
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}: {{ $value }}%"
+
+      - alert: HighTemperature
+        expr: mac_cpu_temperature_celsius > 90
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High temperature on {{ $labels.instance }}: {{ $value }}°C"
+
+      - alert: HighMemory
+        expr: mac_memory_usage_percent > 95
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory on {{ $labels.instance }}: {{ $value }}%"

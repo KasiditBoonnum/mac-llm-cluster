@@ -1,0 +1,3 @@
+# Node 3 (llm-03) - Dynamic switching models
+qwen2.5:32b-instruct-q4_K_M
+deepseek-coder-v2:33b-instruct-q4_K_M

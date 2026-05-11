@@ -1,0 +1,2 @@
+# Node 1 (llm-01) - Primary node models
+phi4:14b-q5_K_M

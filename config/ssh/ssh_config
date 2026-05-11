@@ -1,0 +1,34 @@
+# LLM Cluster SSH Configuration
+
+Host llm-01
+    HostName llm-01.local
+    User YOUR_USERNAME
+    IdentityFile ~/.ssh/id_ed25519
+    StrictHostKeyChecking accept-new
+    ConnectTimeout 5
+
+Host llm-02
+    HostName llm-02.local
+    User YOUR_USERNAME
+    IdentityFile ~/.ssh/id_ed25519
+    StrictHostKeyChecking accept-new
+    ConnectTimeout 5
+
+Host llm-02-ip
+    HostName 192.168.10.12
+    User YOUR_USERNAME
+    IdentityFile ~/.ssh/id_ed25519
+    StrictHostKeyChecking accept-new
+
+Host llm-03
+    HostName llm-03.local
+    User YOUR_USERNAME
+    IdentityFile ~/.ssh/id_ed25519
+    StrictHostKeyChecking accept-new
+    ConnectTimeout 5
+
+Host llm-03-ip
+    HostName 192.168.10.13
+    User YOUR_USERNAME
+    IdentityFile ~/.ssh/id_ed25519
+    StrictHostKeyChecking accept-new

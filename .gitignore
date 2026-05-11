@@ -1,0 +1,32 @@
+# Secrets
+.env
+secrets.env
+config/ssh/authorized_keys
+services/ai-gateway/api_key.txt
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Logs
+logs/analysis/*
+logs/reports/*
+logs/audit/*
+!logs/analysis/.gitkeep
+!logs/reports/.gitkeep
+!logs/audit/.gitkeep
+
+# Backups (large binary)
+backups/omada/*.tar.gz
+backups/data/
+
+# Node / JS
+node_modules/
