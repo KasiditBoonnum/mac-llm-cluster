@@ -34,8 +34,9 @@ def get_powermetrics_temps():
                 m = re.search(r'(\d+\.?\d*)\s*C', line)
                 if m:
                     gpu_temp.set(float(m.group(1)))
-            if 'GPU Active' in line:
-                m = re.search(r'(\d+)%', line)
+            # Matches "GPU Active Residency" and "GPU HW Active Residency" (Apple Silicon)
+            if re.search(r'GPU\s+(?:HW\s+)?Active\s+Residency', line):
+                m = re.search(r'(\d+\.?\d*)%', line)
                 if m:
                     gpu_usage.set(float(m.group(1)))
     except Exception:

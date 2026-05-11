@@ -1,46 +1,18 @@
 #!/bin/bash
 # Install Prometheus on Node 1
 
+set -e
+
+REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+PROM_ETC="/opt/homebrew/etc"
+
 brew install prometheus
 
-cat > /opt/homebrew/etc/prometheus.yml << 'EOF'
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'node1-system'
-    static_configs:
-      - targets: ['llm-01.local:9100']
-        labels: {instance: 'llm-01', node: 'node1'}
-  - job_name: 'node1-mac'
-    static_configs:
-      - targets: ['llm-01.local:9101']
-        labels: {instance: 'llm-01', node: 'node1'}
-
-  - job_name: 'node2-system'
-    static_configs:
-      - targets: ['llm-02.local:9100']
-        labels: {instance: 'llm-02', node: 'node2'}
-  - job_name: 'node2-mac'
-    static_configs:
-      - targets: ['llm-02.local:9101']
-        labels: {instance: 'llm-02', node: 'node2'}
-
-  - job_name: 'node3-system'
-    static_configs:
-      - targets: ['llm-03.local:9100']
-        labels: {instance: 'llm-03', node: 'node3'}
-  - job_name: 'node3-mac'
-    static_configs:
-      - targets: ['llm-03.local:9101']
-        labels: {instance: 'llm-03', node: 'node3'}
-
-  - job_name: 'inference'
-    static_configs:
-      - targets: ['llm-01.local:9102', 'llm-02.local:9102', 'llm-03.local:9102']
-EOF
+# Use repo config (includes all 3 nodes + inference + alerts)
+cp "$REPO_DIR/config/prometheus/prometheus.yml" "$PROM_ETC/prometheus.yml"
+cp "$REPO_DIR/config/prometheus/alerts.yml" "$PROM_ETC/alerts.yml"
 
 brew services start prometheus
 
-echo "✅ Prometheus running on port 9090"
+echo "Prometheus running on http://llm-01.local:9090"
 open http://llm-01.local:9090
