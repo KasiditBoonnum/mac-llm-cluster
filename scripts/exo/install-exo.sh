@@ -21,13 +21,21 @@ echo "Creating venv with Python 3.13..."
 echo "Cloning Exo source..."
 git clone --depth=1 https://github.com/exo-explore/exo.git "$SRC"
 
-echo "Building and installing Rust extension (takes 5-15 min)..."
+echo "Building Rust extension (takes 5-15 min)..."
 cd "$SRC/rust/exo_pyo3_bindings"
-VIRTUAL_ENV="$VENV" "$VENV/bin/maturin" develop --release
+"$VENV/bin/maturin" build --release --interpreter "$VENV/bin/python3"
+WHEELS_DIR="$SRC/target/wheels"
+WHEEL=$(ls "$WHEELS_DIR/"*cp313*.whl 2>/dev/null | head -1)
+if [ -n "$WHEEL" ]; then
+    "$VENV/bin/pip" install "$WHEEL"
+else
+    echo "ERROR: No cp313 wheel found in $WHEELS_DIR"
+    exit 1
+fi
 
 echo "Installing Exo..."
 cd "$SRC"
-"$VENV/bin/pip" install -e . --no-build-isolation
+"$VENV/bin/pip" install -e .
 
 echo "Exo installed"
 "$VENV/bin/exo" --version 2>/dev/null || echo "Installation complete"
