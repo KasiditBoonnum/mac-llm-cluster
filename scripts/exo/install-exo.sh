@@ -42,5 +42,8 @@ brew install node
 cd "$SRC/dashboard"
 npm install && npm run build
 
+echo "Upgrading mlx-lm for latest model support..."
+"$VENV/bin/pip" install --upgrade mlx-lm
+
 echo "Exo installed"
 "$VENV/bin/exo" --version 2>/dev/null || echo "Installation complete"
