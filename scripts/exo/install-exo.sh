@@ -23,7 +23,7 @@ git clone --depth=1 https://github.com/exo-explore/exo.git "$SRC"
 
 echo "Building Rust extension (takes 5-15 min)..."
 cd "$SRC/rust/exo_pyo3_bindings"
-"$VENV/bin/maturin" build --release
+"$VENV/bin/maturin" build --release --interpreter "$VENV/bin/python3"
 # Maturin outputs to workspace root target/wheels/
 WHEELS_DIR="$SRC/target/wheels"
 WHEEL=$(ls "$WHEELS_DIR/"*.whl 2>/dev/null | head -1)
