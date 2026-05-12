@@ -22,14 +22,15 @@ echo "Cloning Exo source..."
 git clone --depth=1 https://github.com/exo-explore/exo.git "$SRC"
 
 echo "Building Rust extension (takes 5-15 min)..."
-cd "$SRC"
+cd "$SRC/rust/exo_pyo3_bindings"
 "$VENV/bin/maturin" build --release
-WHEEL=$(ls "$SRC/target/wheels/"*.whl 2>/dev/null | head -1)
+WHEEL=$(ls "$SRC/rust/exo_pyo3_bindings/target/wheels/"*.whl 2>/dev/null | head -1)
 if [ -n "$WHEEL" ]; then
     "$VENV/bin/pip" install "$WHEEL"
 fi
 
 echo "Installing Exo..."
+cd "$SRC"
 "$VENV/bin/pip" install -e .
 
 echo "Exo installed"
