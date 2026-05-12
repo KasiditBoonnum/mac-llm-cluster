@@ -37,5 +37,9 @@ echo "Installing Exo..."
 cd "$SRC"
 "$VENV/bin/pip" install -e .
 
+echo "Building dashboard..."
+cd "$SRC/dashboard"
+npm install && npm run build
+
 echo "Exo installed"
 "$VENV/bin/exo" --version 2>/dev/null || echo "Installation complete"
