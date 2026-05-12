@@ -7,14 +7,12 @@ import re
 import time
 import psutil
 
-cpu_usage = Gauge('mac_cpu_usage_percent', 'CPU usage', ['core'])
-cpu_temp = Gauge('mac_cpu_temperature_celsius', 'CPU temperature')
-gpu_usage = Gauge('mac_gpu_usage_percent', 'GPU active residency %')
-gpu_temp = Gauge('mac_gpu_temperature_celsius', 'GPU temperature')
-gpu_power = Gauge('mac_gpu_power_mw', 'GPU power in mW')
+cpu_usage   = Gauge('mac_cpu_usage_percent',    'CPU usage per core', ['core'])
+gpu_usage   = Gauge('mac_gpu_usage_percent',    'GPU active residency %')
+gpu_power   = Gauge('mac_gpu_power_mw',         'GPU power in mW')
 combined_power = Gauge('mac_combined_power_mw', 'Combined CPU+GPU+ANE power in mW')
-memory_used = Gauge('mac_memory_used_bytes', 'Memory used')
-memory_total = Gauge('mac_memory_total_bytes', 'Total memory')
+memory_used    = Gauge('mac_memory_used_bytes', 'Memory used bytes')
+memory_total   = Gauge('mac_memory_total_bytes','Total memory bytes')
 memory_percent = Gauge('mac_memory_usage_percent', 'Memory usage %')
 
 def get_cpu_usage():
@@ -33,30 +31,16 @@ def get_powermetrics():
                 m = re.search(r'(\d+\.?\d*)%', line)
                 if m:
                     gpu_usage.set(float(m.group(1)))
-
             # GPU power: "GPU Power: 61 mW"
             if re.match(r'GPU Power:', line):
                 m = re.search(r'(\d+\.?\d*)\s*mW', line)
                 if m:
                     gpu_power.set(float(m.group(1)))
-
             # Combined power: "Combined Power (CPU + GPU + ANE): 1516 mW"
             if 'Combined Power' in line:
                 m = re.search(r'(\d+\.?\d*)\s*mW', line)
                 if m:
                     combined_power.set(float(m.group(1)))
-
-            # CPU die temperature (if available on this macOS version)
-            if re.search(r'CPU die temperature', line, re.IGNORECASE):
-                m = re.search(r'(\d+\.?\d*)\s*C', line)
-                if m:
-                    cpu_temp.set(float(m.group(1)))
-
-            # GPU temperature (if available on this macOS version)
-            if re.search(r'GPU.*temperature', line, re.IGNORECASE):
-                m = re.search(r'(\d+\.?\d*)\s*C', line)
-                if m:
-                    gpu_temp.set(float(m.group(1)))
     except Exception:
         pass
 

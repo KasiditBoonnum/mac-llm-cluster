@@ -22,7 +22,7 @@
       "type": "stat",
       "title": "CPU %",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 5 },
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
         "colorMode": "background",
@@ -33,8 +33,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "min": 0,
-          "max": 100,
+          "min": 0, "max": 100,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -47,11 +46,7 @@
         "overrides": []
       },
       "targets": [
-        {
-          "expr": "avg by (instance) (mac_cpu_usage_percent)",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
+        { "expr": "avg by (instance) (mac_cpu_usage_percent)", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
@@ -59,7 +54,7 @@
       "type": "stat",
       "title": "GPU %",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 5 },
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
         "colorMode": "background",
@@ -70,8 +65,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "min": 0,
-          "max": 100,
+          "min": 0, "max": 100,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -84,11 +78,7 @@
         "overrides": []
       },
       "targets": [
-        {
-          "expr": "mac_gpu_usage_percent",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
+        { "expr": "mac_gpu_usage_percent", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
@@ -96,7 +86,7 @@
       "type": "stat",
       "title": "RAM %",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 5 },
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
         "colorMode": "background",
@@ -107,8 +97,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "min": 0,
-          "max": 100,
+          "min": 0, "max": 100,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -121,11 +110,7 @@
         "overrides": []
       },
       "targets": [
-        {
-          "expr": "mac_memory_usage_percent",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
+        { "expr": "mac_memory_usage_percent", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
@@ -133,7 +118,7 @@
       "type": "stat",
       "title": "Total Power (W)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 5 },
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
         "colorMode": "background",
@@ -157,47 +142,92 @@
         "overrides": []
       },
       "targets": [
-        {
-          "expr": "mac_combined_power_mw / 1000",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
+        { "expr": "mac_combined_power_mw / 1000", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
       "id": 6,
       "type": "row",
-      "title": "CPU Usage",
+      "title": "GPU & Memory",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 1 },
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
       "panels": []
     },
     {
       "id": 7,
       "type": "timeseries",
-      "title": "CPU Usage — All Nodes",
+      "title": "GPU Usage — All Nodes",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 0, "y": 7, "w": 24, "h": 9 },
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 7 },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": ["lastNotNull", "max"]
-        }
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "custom": {
-            "lineInterpolation": "smooth",
-            "fillOpacity": 15,
-            "showPoints": "never",
-            "lineWidth": 2,
-            "spanNulls": true
-          },
+          "min": 0, "max": 100,
+          "custom": { "lineInterpolation": "smooth", "fillOpacity": 15, "showPoints": "never", "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "mac_gpu_usage_percent", "legendFormat": "{{instance}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Memory Usage — All Nodes",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 7 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "custom": { "lineInterpolation": "smooth", "fillOpacity": 15, "showPoints": "never", "lineWidth": 2, "spanNulls": true },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "mac_memory_usage_percent", "legendFormat": "{{instance}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "CPU Usage",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "CPU Usage — All Nodes",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 7 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "custom": { "lineInterpolation": "smooth", "fillOpacity": 15, "showPoints": "never", "lineWidth": 2, "spanNulls": true },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -210,238 +240,32 @@
         "overrides": []
       },
       "targets": [
-        {
-          "expr": "avg by (instance) (mac_cpu_usage_percent)",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 8,
-      "type": "row",
-      "title": "GPU & Memory",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 1 },
-      "panels": []
-    },
-    {
-      "id": 9,
-      "type": "timeseries",
-      "title": "GPU Usage — All Nodes",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 9 },
-      "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": ["lastNotNull", "max"]
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "custom": {
-            "lineInterpolation": "smooth",
-            "fillOpacity": 15,
-            "showPoints": "never",
-            "lineWidth": 2,
-            "spanNulls": true
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 60 },
-              { "color": "red", "value": 85 }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "expr": "mac_gpu_usage_percent",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "type": "timeseries",
-      "title": "Memory Usage — All Nodes",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 12, "y": 17, "w": 12, "h": 9 },
-      "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": ["lastNotNull", "max"]
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "custom": {
-            "lineInterpolation": "smooth",
-            "fillOpacity": 15,
-            "showPoints": "never",
-            "lineWidth": 2,
-            "spanNulls": true
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 80 },
-              { "color": "red", "value": 95 }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "expr": "mac_memory_usage_percent",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
+        { "expr": "avg by (instance) (mac_cpu_usage_percent)", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
       "id": 11,
       "type": "row",
-      "title": "Temperature",
+      "title": "Power Consumption",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 26, "w": 24, "h": 1 },
+      "gridPos": { "x": 0, "y": 21, "w": 24, "h": 1 },
       "panels": []
     },
     {
       "id": 12,
       "type": "timeseries",
-      "title": "CPU Temperature — All Nodes",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 0, "y": 27, "w": 12, "h": 9 },
-      "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": ["lastNotNull", "max"]
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "celsius",
-          "custom": {
-            "lineInterpolation": "smooth",
-            "fillOpacity": 15,
-            "showPoints": "never",
-            "lineWidth": 2,
-            "spanNulls": true
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 70 },
-              { "color": "red", "value": 85 }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "expr": "mac_cpu_temperature_celsius",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 13,
-      "type": "timeseries",
-      "title": "GPU Temperature — All Nodes",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 12, "y": 27, "w": 12, "h": 9 },
-      "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": ["lastNotNull", "max"]
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "celsius",
-          "custom": {
-            "lineInterpolation": "smooth",
-            "fillOpacity": 15,
-            "showPoints": "never",
-            "lineWidth": 2,
-            "spanNulls": true
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 70 },
-              { "color": "red", "value": 85 }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "expr": "mac_gpu_temperature_celsius",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 14,
-      "type": "row",
-      "title": "Power Consumption",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 36, "w": 24, "h": 1 },
-      "panels": []
-    },
-    {
-      "id": 15,
-      "type": "timeseries",
       "title": "Combined Power (CPU + GPU + ANE) — All Nodes",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 0, "y": 37, "w": 12, "h": 9 },
+      "gridPos": { "x": 0, "y": 22, "w": 12, "h": 7 },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": ["lastNotNull", "max"]
-        }
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "watt",
           "decimals": 1,
-          "custom": {
-            "lineInterpolation": "smooth",
-            "fillOpacity": 15,
-            "showPoints": "never",
-            "lineWidth": 2,
-            "spanNulls": true
-          },
+          "custom": { "lineInterpolation": "smooth", "fillOpacity": 15, "showPoints": "never", "lineWidth": 2, "spanNulls": true },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -454,38 +278,24 @@
         "overrides": []
       },
       "targets": [
-        {
-          "expr": "mac_combined_power_mw / 1000",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
+        { "expr": "mac_combined_power_mw / 1000", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     },
     {
-      "id": 16,
+      "id": 13,
       "type": "timeseries",
       "title": "GPU Power — All Nodes",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 12, "y": 37, "w": 12, "h": 9 },
+      "gridPos": { "x": 12, "y": 22, "w": 12, "h": 7 },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": ["lastNotNull", "max"]
-        }
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "watt",
           "decimals": 2,
-          "custom": {
-            "lineInterpolation": "smooth",
-            "fillOpacity": 15,
-            "showPoints": "never",
-            "lineWidth": 2,
-            "spanNulls": true
-          },
+          "custom": { "lineInterpolation": "smooth", "fillOpacity": 15, "showPoints": "never", "lineWidth": 2, "spanNulls": true },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -498,11 +308,7 @@
         "overrides": []
       },
       "targets": [
-        {
-          "expr": "mac_gpu_power_mw / 1000",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
+        { "expr": "mac_gpu_power_mw / 1000", "legendFormat": "{{instance}}", "refId": "A" }
       ]
     }
   ]
