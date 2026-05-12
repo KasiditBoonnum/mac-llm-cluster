@@ -31,7 +31,7 @@ fi
 
 echo "Installing Exo..."
 cd "$SRC"
-"$VENV/bin/pip" install -e .
+"$VENV/bin/pip" install -e . --find-links "$SRC/rust/exo_pyo3_bindings/target/wheels/"
 
 echo "Exo installed"
 "$VENV/bin/exo" --version 2>/dev/null || echo "Installation complete"
