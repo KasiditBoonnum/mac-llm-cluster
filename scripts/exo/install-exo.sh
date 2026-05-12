@@ -1,7 +1,14 @@
 #!/bin/bash
-# Install Exo for distributed inference
+# Install Exo distributed inference on a node
 
-pip3 install exo --break-system-packages
+set -e
 
-echo "✅ Exo installed"
-exo --version || echo "Run 'exo --version' after shell restart"
+VENV="$HOME/exo-venv"
+
+echo "Creating Python venv for Exo..."
+python3 -m venv "$VENV"
+"$VENV/bin/pip" install --upgrade pip
+"$VENV/bin/pip" install exo-inference
+
+echo "Exo installed at $VENV"
+"$VENV/bin/exo" --version
