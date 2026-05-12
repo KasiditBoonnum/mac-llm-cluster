@@ -38,6 +38,7 @@ cd "$SRC"
 "$VENV/bin/pip" install -e .
 
 echo "Building dashboard..."
+brew install node
 cd "$SRC/dashboard"
 npm install && npm run build
 
