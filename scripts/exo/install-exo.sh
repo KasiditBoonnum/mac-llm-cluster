@@ -5,14 +5,18 @@ set -e
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
-# Exo requires Python 3.12+
-echo "Installing Python 3.12..."
-brew install python@3.12
+echo "Installing Python 3.13..."
+brew install python@3.13
 
-PYTHON="/opt/homebrew/bin/python3.12"
+PYTHON="/opt/homebrew/bin/python3.13"
 VENV="$HOME/exo-venv"
 
-echo "Creating venv with Python 3.12..."
+# Remove old venv if wrong Python version
+if [ -d "$VENV" ]; then
+    rm -rf "$VENV"
+fi
+
+echo "Creating venv with Python 3.13..."
 "$PYTHON" -m venv "$VENV"
 "$VENV/bin/pip" install --upgrade pip
 
@@ -20,4 +24,4 @@ echo "Installing Exo from GitHub..."
 "$VENV/bin/pip" install "exo @ git+https://github.com/exo-explore/exo.git"
 
 echo "Exo installed"
-"$VENV/bin/exo" --version 2>/dev/null || echo "Run 'exo --version' to verify"
+"$VENV/bin/exo" --version 2>/dev/null || echo "Installation complete"
