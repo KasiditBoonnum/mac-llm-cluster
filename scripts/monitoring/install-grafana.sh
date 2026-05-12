@@ -5,6 +5,7 @@ set -e
 
 REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 GRAFANA_PROV="/opt/homebrew/etc/grafana/provisioning"
+PLIST="$HOME/Library/LaunchAgents/com.llm.grafana-provision.plist"
 
 brew install grafana
 
@@ -15,26 +16,28 @@ if ! grep -q "^http_port = 3001" "$GRAFANA_INI" 2>/dev/null; then
         echo "http_port = 3001" >> "$GRAFANA_INI"
 fi
 
-# Provision datasource
+# Copy provisioning files (datasource only — dashboard via API)
 mkdir -p "$GRAFANA_PROV/datasources"
 cp "$REPO_DIR/config/grafana/datasources/prometheus.yaml" \
    "$GRAFANA_PROV/datasources/prometheus.yaml"
 
-# Provision dashboard provider config
-mkdir -p "$GRAFANA_PROV/dashboards"
-cp "$REPO_DIR/config/grafana/provisioning/dashboards/dashboards.yaml" \
-   "$GRAFANA_PROV/dashboards/dashboards.yaml"
+# Install provision LaunchAgent (runs on every boot to restore dashboard)
+mkdir -p ~/Library/LaunchAgents
+sed "s/YOUR_USERNAME/$(whoami)/g" \
+    "$REPO_DIR/config/launchd/com.llm.grafana-provision.plist" \
+    > "$PLIST"
 
-# Copy dashboard JSON files
-cp "$REPO_DIR/config/grafana/mac-cluster-dashboard.json" \
-   "$GRAFANA_PROV/dashboards/mac-cluster-dashboard.json"
-cp "$REPO_DIR/config/grafana/inference-dashboard.json" \
-   "$GRAFANA_PROV/dashboards/inference-dashboard.json"
+brew services start grafana
 
-brew services restart grafana
+# Wait and provision
+sleep 5
+bash "$REPO_DIR/scripts/monitoring/provision-grafana.sh"
+
+# Load LaunchAgent for future reboots
+launchctl unload "$PLIST" 2>/dev/null
+launchctl load "$PLIST"
 
 echo "Grafana running on http://llm-01.local:3001"
-echo "Login: admin / admin (change on first login)"
-echo "Dashboard: Mac LLM Cluster auto-provisioned"
+echo "Dashboard auto-provisions on every reboot"
 sleep 3
 open http://llm-01.local:3001
