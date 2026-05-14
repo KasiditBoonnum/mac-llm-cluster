@@ -8,6 +8,9 @@ if [ ! -d "$SRC" ]; then
     exit 1
 fi
 
+echo "Ensuring mlx and mlx-lm are installed and up to date..."
+"$HOME/exo-venv/bin/pip" install --upgrade mlx mlx-lm -q
+
 echo "Patching placement.py: handle missing instance gracefully..."
 sed -i '' '/raise ValueError.*Instance.*not found/c\    return target_instances' \
     "$SRC/src/exo/master/placement.py"
