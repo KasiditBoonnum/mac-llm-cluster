@@ -52,4 +52,25 @@ else:
     print("cache.py already patched or different version")
 PYEOF
 
+echo "Patching types.py: make deepseek_v4 import optional..."
+python3 << 'PYEOF'
+import os
+filepath = os.path.expanduser("~/exo-source/src/exo/worker/engines/mlx/types.py")
+with open(filepath, "r") as f:
+    content = f.read()
+old = "from mlx_lm.models.deepseek_v4 import DeepseekV4Cache"
+new = """try:
+    from mlx_lm.models.deepseek_v4 import DeepseekV4Cache
+except ImportError:
+    class DeepseekV4Cache:  # type: ignore
+        pass"""
+if old in content:
+    content = content.replace(old, new)
+    with open(filepath, "w") as f:
+        f.write(content)
+    print("Patched types.py successfully")
+else:
+    print("types.py already patched or different version")
+PYEOF
+
 echo "All patches applied"
