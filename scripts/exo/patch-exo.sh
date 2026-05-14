@@ -19,6 +19,31 @@ echo "Patching constants.py: increase instance retry limit for large model downl
 sed -i '' 's/EXO_MAX_INSTANCE_RETRIES = 5/EXO_MAX_INSTANCE_RETRIES = 50000/' \
     "$SRC/src/exo/shared/constants.py"
 
+echo "Creating deepseek_v4 stub module so exo imports don't crash..."
+python3 << 'PYEOF'
+import os, site
+site_packages = os.path.join(os.path.expanduser("~"), "exo-venv", "lib", "python3.13", "site-packages")
+stub_path = os.path.join(site_packages, "mlx_lm", "models", "deepseek_v4.py")
+if not os.path.exists(stub_path):
+    stub = """# Stub — deepseek_v4 not available in this mlx-lm version
+class DeepseekV4Cache:
+    pass
+class DeepseekV4MoE:
+    pass
+class V4Attention:
+    pass
+class Model:
+    pass
+class _CompressorBranch:
+    pass
+"""
+    with open(stub_path, "w") as f:
+        f.write(stub)
+    print("Created deepseek_v4 stub")
+else:
+    print("deepseek_v4 stub already exists")
+PYEOF
+
 echo "Patching cache.py: make deepseek_v4 import optional..."
 python3 << 'PYEOF'
 import os
