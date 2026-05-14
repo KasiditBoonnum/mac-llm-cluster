@@ -42,8 +42,8 @@ brew install node
 cd "$SRC/dashboard"
 npm install && npm run build
 
-echo "Upgrading mlx-lm for latest model support..."
-"$VENV/bin/pip" install --upgrade mlx-lm
+echo "Installing mlx and upgrading mlx-lm..."
+"$VENV/bin/pip" install --upgrade mlx mlx-lm
 
 echo "Applying patches..."
 bash "$(dirname "$0")/patch-exo.sh"
