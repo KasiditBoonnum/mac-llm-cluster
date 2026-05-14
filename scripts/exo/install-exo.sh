@@ -45,8 +45,8 @@ npm install && npm run build
 echo "Upgrading mlx-lm for latest model support..."
 "$VENV/bin/pip" install --upgrade mlx-lm
 
-echo "Patching placement.py: handle missing instance gracefully..."
-sed -i '' '/raise ValueError.*Instance.*not found/c\    return target_instances' "$SRC/src/exo/master/placement.py"
+echo "Applying patches..."
+bash "$(dirname "$0")/patch-exo.sh"
 
 echo "Exo installed"
 "$VENV/bin/exo" --version 2>/dev/null || echo "Installation complete"
