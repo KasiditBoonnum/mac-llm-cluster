@@ -14,10 +14,10 @@ else
 fi
 
 # Test inference
-echo "Testing inference (Qwen3-30B distributed)..."
+echo "Testing inference (Qwen3.6-35B-A3B distributed)..."
 curl -s http://llm-01.local:5678/v1/chat/completions \
     -H "Content-Type: application/json" \
-    -d '{"model":"mlx-community/Qwen3-30B-A3B-4bit","messages":[{"role":"user","content":"Say hello"}],"max_tokens":20}' \
+    -d '{"model":"mlx-community/Qwen3.6-35B-A3B-8bit","messages":[{"role":"user","content":"Say hello"}],"max_tokens":20}' \
     | python3 -c "import sys,json; d=json.load(sys.stdin); print('  Response:', d['choices'][0]['message']['content'])"
 
 echo "✅ Exo cluster working"
