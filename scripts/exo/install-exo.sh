@@ -33,9 +33,9 @@ else
     exit 1
 fi
 
-echo "Installing Exo..."
+echo "Installing Exo with mlx extras (includes custom mlx-lm and mlx-vlm)..."
 cd "$SRC"
-"$VENV/bin/pip" install -e .
+"$VENV/bin/pip" install -e ".[mlx]"
 
 echo "Building dashboard..."
 brew install node
