@@ -10,6 +10,7 @@ fi
 
 echo "Installing exo mlx extras (custom mlx-lm with deepseek_v4, mlx-vlm)..."
 cd "$SRC" && "$HOME/exo-venv/bin/pip" install -e ".[mlx]" -q
+"$HOME/exo-venv/bin/pip" install "mlx-vlm>=0.3.11" -q
 
 echo "Reverting any previously broken source patches..."
 cd "$SRC" && git checkout src/exo/worker/engines/mlx/cache.py src/exo/worker/engines/mlx/types.py 2>/dev/null || true

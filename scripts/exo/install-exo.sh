@@ -36,6 +36,7 @@ fi
 echo "Installing Exo with mlx extras (includes custom mlx-lm and mlx-vlm)..."
 cd "$SRC"
 "$VENV/bin/pip" install -e ".[mlx]"
+"$VENV/bin/pip" install "mlx-vlm>=0.3.11"
 
 echo "Building dashboard..."
 brew install node
