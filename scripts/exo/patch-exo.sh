@@ -12,4 +12,8 @@ echo "Patching placement.py: handle missing instance gracefully..."
 sed -i '' '/raise ValueError.*Instance.*not found/c\    return target_instances' \
     "$SRC/src/exo/master/placement.py"
 
+echo "Patching constants.py: increase instance retry limit for large model downloads..."
+sed -i '' 's/EXO_MAX_INSTANCE_RETRIES = 5/EXO_MAX_INSTANCE_RETRIES = 50000/' \
+    "$SRC/src/exo/shared/constants.py"
+
 echo "All patches applied"
