@@ -8,8 +8,8 @@ if [ ! -d "$SRC" ]; then
     exit 1
 fi
 
-echo "Installing exo mlx extras (custom mlx-lm with deepseek_v4, mlx-vlm)..."
-cd "$SRC" && "$HOME/exo-venv/bin/pip" install -e ".[mlx]" -q
+echo "Installing mlx-lm fork (with deepseek_v4) and mlx-vlm..."
+"$HOME/exo-venv/bin/pip" install "git+https://github.com/rltakashige/mlx-lm@leo/deepseek-v4" -q
 "$HOME/exo-venv/bin/pip" install "mlx-vlm>=0.3.11" -q
 
 echo "Reverting any previously broken source patches..."
