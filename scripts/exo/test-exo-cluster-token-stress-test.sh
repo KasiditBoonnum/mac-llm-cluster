@@ -6,6 +6,8 @@ curl -s http://localhost:5678/v1/chat/completions \
     --no-buffer | python3 -c "
 import sys, json, time
 
+FILL = "#"
+EMPTY = "-"
 start = time.time()
 tokens = 0
 chars = 0
@@ -41,7 +43,7 @@ for line in sys.stdin:
                     progress = (tokens / 48000) * 100
                     bars = int(progress / 2)
 
-                    print(f'\r[{"█" * bars}{"░" * (50-bars)}] {progress:.1f}% | {tokens:,} / 48,000 tokens | {tps:.1f} tok/s | {elapsed/60:.1f} min', end='', flush=True)
+                    print(f'\r[{FILL * bars}{EMPTY * (50-bars)}] {progress:.1f}% | {tokens:,} / 48,000 tokens | {tps:.1f} tok/s | {elapsed/60:.1f} min', end='', flush=True)
                     last_update = now
 
                 # Checkpoint warnings
@@ -49,7 +51,7 @@ for line in sys.stdin:
                     elapsed = time.time() - gen_start
                     tps = tokens / elapsed
                     kv_cache_gb = tokens * 1.97 / 1024
-                    print(f'\n\n📊 CHECKPOINT {tokens//1000}K: {tps:.1f} tok/s | KV cache: ~{kv_cache_gb:.1f} GB', flush=True)
+                    print(f'\n\nCHECKPOINT {tokens//1000}K: {tps:.1f} tok/s | KV cache: ~{kv_cache_gb:.1f} GB', flush=True)
         except Exception as e:
             pass
 
