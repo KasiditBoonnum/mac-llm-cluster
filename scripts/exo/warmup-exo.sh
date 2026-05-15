@@ -15,7 +15,7 @@ sleep 15
 echo "Triggering model launch across all 3 nodes..."
 PLACEMENT=$(curl -s -X POST http://localhost:5678/place_instance \
     -H "Content-Type: application/json" \
-    -d "{\"model_id\":\"$MODEL\",\"sharding\":\"Pipeline\",\"instance_meta\":\"MlxRing\",\"min_nodes\":3}")
+    -d "{\"model_id\":\"$MODEL\",\"sharding\":\"Pipeline\",\"instance_meta\":\"MlxRing\",\"min_nodes\":2}")
 
 echo "Placement: $PLACEMENT"
 
