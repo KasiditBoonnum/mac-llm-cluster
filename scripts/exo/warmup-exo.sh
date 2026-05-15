@@ -2,36 +2,33 @@
 # Warm up exo cluster — triggers model launch via API then waits until ready
 
 MODEL="mlx-community/Qwen3.6-35B-A3B-8bit"
-MAX_WAIT=300
-INTERVAL=10
+MAX_WAIT=120
+INTERVAL=3
 
 echo "Waiting for exo API..."
 until curl -s http://localhost:5678/v1/models &>/dev/null; do
-    sleep 3
+    sleep 2
 done
-echo "API ready. Waiting 30s for peers to connect..."
-sleep 30
+echo "API ready. Waiting 15s for all 3 nodes to connect..."
+sleep 15
 
-echo "Placing instance for $MODEL..."
+echo "Triggering model launch across all 3 nodes..."
 PLACEMENT=$(curl -s -X POST http://localhost:5678/place_instance \
     -H "Content-Type: application/json" \
-    -d "{\"model_id\":\"$MODEL\",\"sharding\":\"Pipeline\",\"instance_meta\":\"MlxRing\",\"min_nodes\":1}")
+    -d "{\"model_id\":\"$MODEL\",\"sharding\":\"Pipeline\",\"instance_meta\":\"MlxRing\",\"min_nodes\":3}")
 
-echo "Placement response: $PLACEMENT"
+echo "Placement: $PLACEMENT"
 
 INSTANCE=$(echo "$PLACEMENT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d.get('instance', d)))" 2>/dev/null)
 
 if [ -n "$INSTANCE" ] && [ "$INSTANCE" != "null" ]; then
-    echo "Launching instance..."
     LAUNCH=$(curl -s -X POST http://localhost:5678/instance \
         -H "Content-Type: application/json" \
         -d "{\"instance\": $INSTANCE}")
-    echo "Launch response: $LAUNCH"
-else
-    echo "No instance in placement response — model may already be loaded or nodes not ready"
+    echo "Launch: $LAUNCH"
 fi
 
-echo "Waiting for model to respond (up to ${MAX_WAIT}s)..."
+echo "Waiting for model to respond..."
 elapsed=0
 while true; do
     sleep $INTERVAL
@@ -42,15 +39,14 @@ while true; do
         -d "{\"model\":\"$MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}")
 
     if echo "$RESPONSE" | grep -q '"content"'; then
-        echo "✅ Model loaded — cluster ready"
+        echo "✅ Cluster ready in ${elapsed}s"
         exit 0
     fi
 
-    MSG=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('error',{}).get('message','unknown'))" 2>/dev/null)
-    echo "[${elapsed}s] $MSG"
+    echo "[${elapsed}s] not ready yet..."
 
     if [ $elapsed -ge $MAX_WAIT ]; then
-        echo "❌ Timed out. Open http://localhost:5678 and click Launch manually."
+        echo "❌ Timed out after ${MAX_WAIT}s — open http://localhost:5678 and click Launch manually"
         exit 1
     fi
 done
