@@ -6,8 +6,8 @@ curl -s http://localhost:5678/v1/chat/completions \
     --no-buffer | python3 -c "
 import sys, json, time
 
-FILL = "#"
-EMPTY = "-"
+FILL = chr(35)
+EMPTY = chr(45)
 start = time.time()
 tokens = 0
 chars = 0
