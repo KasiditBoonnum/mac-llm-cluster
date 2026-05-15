@@ -1,4 +1,14 @@
 #!/bin/bash
+# Stress test Exo cluster with a long-form generation request
+
+MODEL="mlx-community/Qwen3.6-35B-A3B-8bit"
+
+# Pre-flight check
+if ! curl -s http://localhost:5678/v1/models | grep -q "$MODEL"; then
+    echo "ERROR: $MODEL not available on localhost:5678 — is exo running and model downloaded?"
+    exit 1
+fi
+echo "Pre-flight OK — starting stress test..."
 
 curl -s http://localhost:5678/v1/chat/completions \
     -H "Content-Type: application/json" \
