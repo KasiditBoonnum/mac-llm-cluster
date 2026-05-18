@@ -171,10 +171,6 @@ async def health():
     return {"status": "healthy"}
 
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8081)
-
-
 ADMIN_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -846,3 +842,6 @@ setInterval(checkHealth, 30000);
 </script>
 </body>
 </html>"""
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8081)
