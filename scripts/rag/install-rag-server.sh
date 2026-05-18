@@ -27,14 +27,14 @@ echo "    Qdrant OK (localhost:6333)"
 
 # 2. Install RAG server Python packages
 echo "==> Installing RAG server dependencies..."
-"$PYTHON" -m pip install -r "$RAG_DIR/requirements.txt" --quiet
+"$PYTHON" -m pip install -r "$RAG_DIR/requirements.txt" --break-system-packages --quiet
 
 # 3. Install gateway RAG packages (qdrant-client + sentence-transformers)
 echo "==> Installing gateway RAG dependencies..."
 "$PYTHON" -m pip install \
     "qdrant-client>=1.7.0" \
     "sentence-transformers>=2.3.0" \
-    --quiet
+    --break-system-packages --quiet
 
 # 4. Register the RAG server as a launchd service
 echo "==> Registering launchd service..."
