@@ -582,7 +582,8 @@ tbody tr:last-child td { border-bottom: none; }
         <div class="dz-sub">PDF &nbsp;&#183;&nbsp; DOCX &nbsp;&#183;&nbsp; TXT &nbsp;&#183;&nbsp; MD &nbsp;&#183;&nbsp; CSV &nbsp;&#183;&nbsp; JSON &nbsp;&#183;&nbsp; YAML &nbsp;&#183;&nbsp; PY &nbsp;&#183;&nbsp; JS &nbsp;&#183;&nbsp; TS &nbsp;&#183;&nbsp; SH</div>
       </div>
       <input type="file" id="file-input" multiple
-        accept=".pdf,.docx,.txt,.md,.csv,.py,.js,.ts,.json,.yaml,.yml,.sh,.log,.xml,.html">
+        accept=".pdf,.docx,.txt,.md,.csv,.py,.js,.ts,.json,.yaml,.yml,.sh,.log,.xml,.html"
+        style="display:none">
       <div class="prog-wrap" id="prog-wrap">
         <div class="prog-labels">
           <span id="prog-label">Uploading...</span>
