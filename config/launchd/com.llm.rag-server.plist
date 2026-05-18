@@ -6,9 +6,16 @@
     <string>com.llm.rag-server</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/python3</string>
+        <string>YOUR_PYTHON</string>
         <string>/Users/YOUR_USERNAME/mac-llm-cluster/services/rag/qdrant-rag-server.py</string>
     </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USERNAME/mac-llm-cluster/services/rag</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>

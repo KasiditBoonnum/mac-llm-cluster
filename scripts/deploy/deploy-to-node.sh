@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ -z "$NODE" ] || [ -z "$SERVICE" ]; then
     echo "Usage: $0 <node> <service>"
-    echo "Services: monitoring, docker, ollama, exo, all"
+    echo "Services: monitoring, docker, ollama, exo, rag, all"
     exit 1
 fi
 
@@ -32,6 +32,9 @@ case $SERVICE in
         ;;
     exo)
         ssh "$NODE_ADDR" 'cd ~/mac-llm-cluster && bash scripts/exo/install-exo.sh'
+        ;;
+    rag)
+        ssh "$NODE_ADDR" 'cd ~/mac-llm-cluster && bash scripts/rag/install-rag-server.sh'
         ;;
     all)
         bash "$0" "$NODE" monitoring
