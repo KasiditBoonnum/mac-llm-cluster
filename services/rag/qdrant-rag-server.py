@@ -738,7 +738,7 @@ document.getElementById('doc-tbody').addEventListener('click', function(e) {
 });
 
 function deleteDoc(filename) {
-  if (!confirm('Delete all chunks for "' + filename + '"?\nThis cannot be undone.')) return;
+  if (!confirm('Delete all chunks for "' + filename + '"?\\nThis cannot be undone.')) return;
   fetch('/documents/by-filename?filename=' + encodeURIComponent(filename), { method: 'DELETE' })
     .then(function(r) {
       if (r.ok) {
