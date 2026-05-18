@@ -2,7 +2,7 @@
 # Deploy Nginx configs
 
 REPO_DIR="$HOME/mac-llm-cluster"
-NGINX_CONF_DIR="/opt/homebrew/etc/nginx/conf.d"
+NGINX_CONF_DIR="/opt/homebrew/etc/nginx/servers"
 
 sudo cp "$REPO_DIR/config/nginx/conf.d/"*.conf "$NGINX_CONF_DIR/"
 

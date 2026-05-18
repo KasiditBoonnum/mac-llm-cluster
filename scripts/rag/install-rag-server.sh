@@ -11,7 +11,7 @@ LAUNCHD_DIR="$REPO_ROOT/config/launchd"
 PLIST_NAME="com.llm.rag-server"
 PLIST_SRC="$LAUNCHD_DIR/$PLIST_NAME.plist"
 PLIST_DEST="$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
-NGINX_CONF_DIR="/opt/homebrew/etc/nginx/conf.d"
+NGINX_CONF_DIR="/opt/homebrew/etc/nginx/servers"
 PYTHON="$(which python3)"
 
 echo "==> Python: $PYTHON"
