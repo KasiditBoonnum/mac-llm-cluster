@@ -17,20 +17,20 @@ pre {
 }
 
 .send-button {
-    background-color: #10a37f;
+    background-color: #03a96b;
     border-radius: 6px;
 }
 
 .send-button:hover {
-    background-color: #0e8c6d;
+    background-color: #028a58;
 }
 
 /* Cluster status bar */
 #cluster-status {
     font-size: 11px;
-    color: #888;
+    color: #aab0b6;
     padding: 4px 8px;
-    background: #f0f0f0;
+    background: #2f3337;
     border-radius: 4px;
 }
 
@@ -38,5 +38,5 @@ pre {
 #tokens-per-second {
     font-size: 12px;
     font-weight: bold;
-    color: #10a37f;
+    color: #03a96b;
 }

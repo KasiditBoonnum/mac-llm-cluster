@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
-"""OpenAI-compatible AI Gateway"""
+"""OpenAI-compatible AI Gateway with RAG"""
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import requests
-import os
 from pathlib import Path
+
+try:
+    from qdrant_client import QdrantClient
+    from sentence_transformers import SentenceTransformer
+    _qdrant = QdrantClient(url="http://localhost:6333")
+    _embedder = SentenceTransformer('all-MiniLM-L6-v2')
+    RAG_AVAILABLE = True
+except Exception:
+    RAG_AVAILABLE = False
+
+RAG_COLLECTION = "documents"
+RAG_TOP_K = 3
+RAG_THRESHOLD = 0.45
 
 app = FastAPI(title="LLM Cluster Gateway")
 security = HTTPBearer()
@@ -28,18 +40,66 @@ def verify_key(credentials: HTTPAuthorizationCredentials = Depends(security)):
     return credentials.credentials
 
 
+def retrieve_context(query: str) -> str:
+    """Search Qdrant for relevant chunks; returns empty string if nothing passes threshold."""
+    try:
+        vector = _embedder.encode(query).tolist()
+        hits = _qdrant.search(
+            collection_name=RAG_COLLECTION,
+            query_vector=vector,
+            limit=RAG_TOP_K,
+            score_threshold=RAG_THRESHOLD,
+        )
+        if not hits:
+            return ""
+        parts = [
+            f"[Source: {h.payload.get('filename', 'unknown')}]\n{h.payload.get('text', '')}"
+            for h in hits
+        ]
+        return "\n\n---\n".join(parts)
+    except Exception:
+        return ""
+
+
+def inject_rag(messages: list) -> list:
+    """Prepend retrieved context as a system message when relevant documents are found."""
+    user_msgs = [m for m in messages if m.get("role") == "user"]
+    if not user_msgs:
+        return messages
+    context = retrieve_context(user_msgs[-1].get("content", ""))
+    if not context:
+        return messages
+    system_content = (
+        "Use the following documents from the knowledge base to answer the user's question "
+        "when relevant. If the documents are not relevant, answer normally.\n\n"
+        f"---\n{context}\n---"
+    )
+    msgs = list(messages)
+    if msgs and msgs[0].get("role") == "system":
+        msgs[0] = {"role": "system", "content": system_content + "\n\n" + msgs[0]["content"]}
+    else:
+        msgs.insert(0, {"role": "system", "content": system_content})
+    return msgs
+
+
 class ChatRequest(BaseModel):
     model: str = "qwen2.5:32b-instruct-q4_K_M"
     messages: list
     stream: bool = False
+    use_rag: bool = True
 
 
 @app.post("/v1/chat/completions")
 async def chat(req: ChatRequest, key: str = Depends(verify_key)):
-    prompt = "\n".join(f"{m['role']}: {m['content']}" for m in req.messages)
-    resp = requests.post(f"{QUEUE_URL}/v1/chat/completions",
+    messages = req.messages
+    if req.use_rag and RAG_AVAILABLE:
+        messages = inject_rag(messages)
+    prompt = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
+    resp = requests.post(
+        f"{QUEUE_URL}/v1/chat/completions",
         json={"model": req.model, "prompt": prompt, "stream": req.stream},
-        timeout=600)
+        timeout=600,
+    )
     if resp.status_code == 200:
         return resp.json()
     raise HTTPException(status_code=resp.status_code, detail="Inference failed")
@@ -57,7 +117,7 @@ async def list_models(key: str = Depends(verify_key)):
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "rag": RAG_AVAILABLE}
 
 
 if __name__ == "__main__":
