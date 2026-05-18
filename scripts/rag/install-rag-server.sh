@@ -49,9 +49,9 @@ echo "    RAG server started (com.llm.rag-server)"
 
 # 5. Deploy nginx config for port 8444
 echo "==> Deploying nginx config..."
-mkdir -p "$NGINX_CONF_DIR"
-cp "$REPO_ROOT/config/nginx/conf.d/rag-admin.conf" "$NGINX_CONF_DIR/"
-nginx -t && nginx -s reload
+sudo mkdir -p "$NGINX_CONF_DIR"
+sudo cp "$REPO_ROOT/config/nginx/conf.d/rag-admin.conf" "$NGINX_CONF_DIR/"
+sudo nginx -t && sudo nginx -s reload
 echo "    nginx reloaded — port 8444 active"
 
 # 6. Restart AI gateway so it picks up RAG dependencies
