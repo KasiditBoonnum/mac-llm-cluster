@@ -11,7 +11,7 @@ try:
     from qdrant_client import QdrantClient
     from sentence_transformers import SentenceTransformer
     _qdrant = QdrantClient(url="http://localhost:6333")
-    _embedder = SentenceTransformer('all-MiniLM-L6-v2')
+    _embedder = SentenceTransformer('BAAI/bge-m3')
     RAG_AVAILABLE = True
 except Exception:
     RAG_AVAILABLE = False

@@ -41,7 +41,7 @@ except ImportError:
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
-embedder = SentenceTransformer('all-MiniLM-L6-v2')
+embedder = SentenceTransformer('BAAI/bge-m3')
 
 FONTS_DIR = Path(__file__).parent / "fonts"
 FONTS_DIR.mkdir(exist_ok=True)
@@ -51,13 +51,19 @@ COLLECTION = "documents"
 CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
 
+VECTOR_SIZE = 1024
+
 try:
+    info = qdrant.get_collection(COLLECTION)
+    existing_size = info.config.params.vectors.size
+    if existing_size != VECTOR_SIZE:
+        qdrant.delete_collection(COLLECTION)
+        raise Exception("dimension mismatch — recreating")
+except Exception:
     qdrant.create_collection(
         collection_name=COLLECTION,
-        vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+        vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
     )
-except Exception:
-    pass
 
 
 def normalize(text: str) -> str:

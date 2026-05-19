@@ -5,12 +5,12 @@ QDRANT_URL="http://localhost:6333"
 
 echo "Creating QDRANT collections..."
 
-# Documents collection (384-dim for all-MiniLM-L6-v2)
+# Documents collection (1024-dim for BAAI/bge-m3)
 curl -s -X PUT "$QDRANT_URL/collections/documents" \
     -H "Content-Type: application/json" \
     -d '{
         "vectors": {
-            "size": 384,
+            "size": 1024,
             "distance": "Cosine"
         }
     }' | python3 -m json.tool
