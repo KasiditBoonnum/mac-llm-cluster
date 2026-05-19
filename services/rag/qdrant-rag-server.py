@@ -41,7 +41,7 @@ except ImportError:
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
-embedder = SentenceTransformer('BAAI/bge-m3')
+embedder = SentenceTransformer('Qwen/Qwen3-Embedding-4B', trust_remote_code=True)
 
 FONTS_DIR = Path(__file__).parent / "fonts"
 FONTS_DIR.mkdir(exist_ok=True)
@@ -51,7 +51,7 @@ COLLECTION = "documents"
 CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
 
-VECTOR_SIZE = 1024
+VECTOR_SIZE = len(embedder.encode("test").tolist())
 
 try:
     info = qdrant.get_collection(COLLECTION)
@@ -88,7 +88,10 @@ def extract_text(content: bytes, filename: str) -> str:
             for page in doc:
                 pix = page.get_pixmap(dpi=300)
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                pages.append(pytesseract.image_to_string(img, lang="tha+eng"))
+                pages.append(pytesseract.image_to_string(
+                    img, lang="tha+eng",
+                    config="--psm 3 --oem 1"
+                ))
             return normalize("\n".join(pages))
         return ""
     if ext == 'docx' and HAS_DOCX:

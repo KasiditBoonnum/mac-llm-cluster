@@ -11,7 +11,7 @@ try:
     from qdrant_client import QdrantClient
     from sentence_transformers import SentenceTransformer
     _qdrant = QdrantClient(url="http://localhost:6333")
-    _embedder = SentenceTransformer('BAAI/bge-m3')
+    _embedder = SentenceTransformer('Qwen/Qwen3-Embedding-4B', trust_remote_code=True)
     RAG_AVAILABLE = True
 except Exception:
     RAG_AVAILABLE = False
