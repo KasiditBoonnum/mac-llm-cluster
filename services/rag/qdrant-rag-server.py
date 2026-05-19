@@ -34,7 +34,7 @@ except ImportError:
 
 try:
     import pytesseract
-    from PIL import Image, ImageFilter, ImageEnhance
+    from PIL import Image
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
@@ -103,45 +103,155 @@ def thai_ratio(text: str) -> float:
     return sum(1 for c in text if '\u0e00' <= c <= '\u0e7f') / len(text)
 
 
-def preprocess_for_ocr(img):
-    img = img.convert('L')
-    img = ImageEnhance.Contrast(img).enhance(2.0)
-    img = img.filter(ImageFilter.SHARPEN)
-    return img
+def extract_page_with_tables(page) -> str:
+    """Extract PDF page text preserving table structure as markdown."""
+    text_parts = []   # list of (y_start, text)
+    table_bboxes = []
+
+    try:
+        finder = page.find_tables()
+        for tbl in finder.tables:
+            cells = tbl.extract()
+            if not cells:
+                continue
+            rx0, ry0, rx1, ry1 = tbl.bbox
+            table_bboxes.append((rx0, ry0, rx1, ry1))
+            rows_md = []
+            for row_i, row in enumerate(cells):
+                clean = [normalize(str(c or '')).strip() for c in row]
+                rows_md.append('| ' + ' | '.join(clean) + ' |')
+                if row_i == 0:
+                    rows_md.append('| ' + ' | '.join('---' for _ in clean) + ' |')
+            text_parts.append((ry0, '\n'.join(rows_md)))
+    except Exception:
+        pass
+
+    for block in page.get_text('blocks', sort=True):
+        if block[6] != 0:   # skip image blocks
+            continue
+        bx0, by0, bx1, by1 = block[:4]
+        in_table = any(
+            bx0 < rx1 and bx1 > rx0 and by0 < ry1 and by1 > ry0
+            for rx0, ry0, rx1, ry1 in table_bboxes
+        )
+        if not in_table and block[4].strip():
+            text_parts.append((by0, normalize(block[4])))
+
+    text_parts.sort(key=lambda x: x[0])
+    return '\n\n'.join(t for _, t in text_parts)
+
+
+def ocr_page_with_structure(img) -> str:
+    """OCR a page using word bounding boxes to preserve table column alignment."""
+    try:
+        data = pytesseract.image_to_data(
+            img, lang="tha+eng",
+            config="--psm 3 --oem 1",
+            output_type=pytesseract.Output.DICT,
+        )
+        lines: dict = {}
+        for i, word in enumerate(data['text']):
+            word = word.strip()
+            if not word or int(data['conf'][i]) < 20:
+                continue
+            key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
+            lines.setdefault(key, []).append(
+                (data['left'][i], data['top'][i], word)
+            )
+        sorted_lines = sorted(lines.values(), key=lambda ws: min(w[1] for w in ws))
+        result = '\n'.join(
+            ' '.join(w[2] for w in sorted(ws, key=lambda w: w[0]))
+            for ws in sorted_lines
+        )
+        return normalize(result)
+    except Exception:
+        return normalize(pytesseract.image_to_string(
+            img, lang="tha+eng", config="--psm 3 --oem 1"
+        ))
 
 
 def extract_text(content: bytes, filename: str) -> str:
     ext = filename.lower().rsplit('.', 1)[-1] if '.' in filename else ''
     if ext == 'pdf' and HAS_PDF:
         doc = fitz.open(stream=content, filetype="pdf")
-        text = normalize("\n".join(page.get_text() for page in doc))
-        # Fall back to OCR if: no text, or Thai doc with suspiciously low Thai chars (bad font encoding)
+        pages_text = [extract_page_with_tables(page) for page in doc]
+        text = '\n\n'.join(t for t in pages_text if t.strip())
         needs_ocr = not text.strip() or (len(text) > 50 and thai_ratio(text) < 0.05)
         if not needs_ocr:
             return text
         if HAS_OCR:
-            pages = []
+            ocr_pages = []
             for page in doc:
                 pix = page.get_pixmap(dpi=300)
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                pages.append(pytesseract.image_to_string(
-                    img, lang="tha+eng",
-                    config="--psm 3 --oem 1"
-                ))
-            return normalize("\n".join(pages))
+                ocr_pages.append(ocr_page_with_structure(img))
+            return '\n\n'.join(t for t in ocr_pages if t.strip())
         return text
     if ext == 'docx' and HAS_DOCX:
         doc = DocxDocument(io.BytesIO(content))
-        return normalize("\n".join(p.text for p in doc.paragraphs if p.text.strip()))
+        parts = [normalize(p.text) for p in doc.paragraphs if p.text.strip()]
+        for tbl in doc.tables:
+            rows_md = []
+            for row_i, row in enumerate(tbl.rows):
+                cols = [normalize(c.text.strip()) for c in row.cells]
+                rows_md.append('| ' + ' | '.join(cols) + ' |')
+                if row_i == 0:
+                    rows_md.append('| ' + ' | '.join('---' for _ in cols) + ' |')
+            if rows_md:
+                parts.append('\n'.join(rows_md))
+        return '\n\n'.join(p for p in parts if p)
     return normalize(content.decode('utf-8', errors='ignore'))
 
 
 def chunk_text(text: str) -> list[str]:
-    chunks = []
-    start = 0
-    while start < len(text):
-        chunks.append(text[start:start + CHUNK_SIZE])
-        start += CHUNK_SIZE - CHUNK_OVERLAP
+    """Chunk text into segments; keeps markdown table headers with their data rows."""
+    sections = re.split(r'\n{2,}', text)
+    chunks: list[str] = []
+    pending = ''
+
+    def flush_pending():
+        nonlocal pending
+        if not pending.strip():
+            pending = ''
+            return
+        start = 0
+        while start < len(pending):
+            chunks.append(pending[start:start + CHUNK_SIZE])
+            start += CHUNK_SIZE - CHUNK_OVERLAP
+        pending = ''
+
+    for section in sections:
+        stripped = section.strip()
+        if not stripped:
+            continue
+        lines = stripped.split('\n')
+        is_table = (
+            len(lines) >= 2
+            and lines[0].startswith('|')
+            and bool(re.match(r'^[\|\- :]+$', lines[1]))
+        )
+        if is_table:
+            flush_pending()
+            header = '\n'.join(lines[:2])
+            data_rows = lines[2:]
+            cur_rows: list[str] = []
+            cur_len = len(header) + 1
+            for row in data_rows:
+                row_len = len(row) + 1
+                if cur_len + row_len > CHUNK_SIZE and cur_rows:
+                    chunks.append(header + '\n' + '\n'.join(cur_rows))
+                    cur_rows = []
+                    cur_len = len(header) + 1
+                cur_rows.append(row)
+                cur_len += row_len
+            if cur_rows:
+                chunks.append(header + '\n' + '\n'.join(cur_rows))
+        else:
+            pending = (pending + '\n\n' + stripped) if pending else stripped
+            if len(pending) >= CHUNK_SIZE:
+                flush_pending()
+
+    flush_pending()
     return [c for c in chunks if c.strip()]
 
 
