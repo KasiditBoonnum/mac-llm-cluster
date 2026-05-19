@@ -44,12 +44,12 @@ def retrieve_context(query: str) -> str:
     """Search Qdrant for relevant chunks; returns empty string if nothing passes threshold."""
     try:
         vector = _embedder.encode(query).tolist()
-        hits = _qdrant.search(
+        hits = _qdrant.query_points(
             collection_name=RAG_COLLECTION,
-            query_vector=vector,
+            query=vector,
             limit=RAG_TOP_K,
             score_threshold=RAG_THRESHOLD,
-        )
+        ).points
         if not hits:
             return ""
         parts = [

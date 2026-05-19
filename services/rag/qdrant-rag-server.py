@@ -178,7 +178,7 @@ async def get_stats():
 @app.post("/search")
 async def search(req: SearchRequest):
     vector = embedder.encode(req.query).tolist()
-    results = qdrant.search(collection_name=COLLECTION, query_vector=vector, limit=req.limit)
+    results = qdrant.query_points(collection_name=COLLECTION, query=vector, limit=req.limit).points
     return {"results": [
         {"text": r.payload.get("text"), "score": r.score, "filename": r.payload.get("filename")}
         for r in results
