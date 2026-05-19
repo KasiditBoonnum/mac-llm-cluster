@@ -639,6 +639,13 @@ tbody tr:last-child td { border-bottom: none; }
           <tr class="empty-state"><td colspan="4">Loading documents...</td></tr>
         </tbody>
       </table>
+      <div id="pagination" style="display:none;align-items:center;justify-content:space-between;padding:12px 4px 0;">
+        <span id="page-info" style="font-size:14px;color:var(--text-dim);"></span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" id="page-prev">&#8592; Prev</button>
+          <button class="btn btn-outline" id="page-next">Next &#8594;</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -728,6 +735,9 @@ function loadStats() {
 
 // ── Documents ──
 var allDocs = [];
+var filteredDocs = [];
+var currentPage = 1;
+var PAGE_SIZE = 10;
 
 function loadDocuments() {
   document.getElementById('doc-tbody').innerHTML =
@@ -735,20 +745,28 @@ function loadDocuments() {
   fetch('/documents').then(function(r) { return r.json(); }).then(function(d) {
     allDocs = d.documents || [];
     document.getElementById('stat-files').textContent = allDocs.length.toLocaleString();
-    renderTable(allDocs);
+    filteredDocs = allDocs;
+    currentPage = 1;
+    renderTable();
   }).catch(function() {
     document.getElementById('doc-tbody').innerHTML =
       '<tr class="empty-state"><td colspan="4" style="color:var(--red)">Failed to load documents.</td></tr>';
   });
 }
 
-function renderTable(docs) {
+function renderTable() {
   var tbody = document.getElementById('doc-tbody');
-  if (!docs.length) {
+  var pagination = document.getElementById('pagination');
+  if (!filteredDocs.length) {
     tbody.innerHTML = '<tr class="empty-state"><td colspan="4">No documents found.</td></tr>';
+    pagination.style.display = 'none';
     return;
   }
-  tbody.innerHTML = docs.map(function(doc) {
+  var totalPages = Math.ceil(filteredDocs.length / PAGE_SIZE);
+  if (currentPage > totalPages) currentPage = totalPages;
+  var start = (currentPage - 1) * PAGE_SIZE;
+  var pageDocs = filteredDocs.slice(start, start + PAGE_SIZE);
+  tbody.innerHTML = pageDocs.map(function(doc) {
     var ext  = doc.filename.includes('.') ? doc.filename.split('.').pop().toUpperCase() : 'FILE';
     var date = doc.uploaded_at ? new Date(doc.uploaded_at + 'Z').toLocaleString() : '—';
     return '<tr>' +
@@ -759,11 +777,26 @@ function renderTable(docs) {
       '<td><button class="btn btn-del" data-filename="' + esc(doc.filename) + '">Delete</button></td>' +
       '</tr>';
   }).join('');
+  pagination.style.display = totalPages > 1 ? 'flex' : 'none';
+  document.getElementById('page-info').textContent =
+    'Page ' + currentPage + ' of ' + totalPages + ' (' + filteredDocs.length + ' files)';
+  document.getElementById('page-prev').disabled = currentPage === 1;
+  document.getElementById('page-next').disabled = currentPage === totalPages;
 }
+
+document.getElementById('page-prev').addEventListener('click', function() {
+  if (currentPage > 1) { currentPage--; renderTable(); }
+});
+document.getElementById('page-next').addEventListener('click', function() {
+  var totalPages = Math.ceil(filteredDocs.length / PAGE_SIZE);
+  if (currentPage < totalPages) { currentPage++; renderTable(); }
+});
 
 document.getElementById('filter-input').addEventListener('input', function() {
   var q = this.value.toLowerCase().trim();
-  renderTable(q ? allDocs.filter(function(d) { return d.filename.toLowerCase().includes(q); }) : allDocs);
+  filteredDocs = q ? allDocs.filter(function(d) { return d.filename.toLowerCase().includes(q); }) : allDocs;
+  currentPage = 1;
+  renderTable();
 });
 
 document.getElementById('doc-tbody').addEventListener('click', function(e) {
@@ -778,8 +811,9 @@ function deleteDoc(filename) {
       if (r.ok) {
         toast('Deleted: ' + filename);
         allDocs = allDocs.filter(function(d) { return d.filename !== filename; });
+        filteredDocs = filteredDocs.filter(function(d) { return d.filename !== filename; });
         document.getElementById('stat-files').textContent = allDocs.length.toLocaleString();
-        document.getElementById('filter-input').dispatchEvent(new Event('input'));
+        renderTable();
         loadStats();
       } else {
         toast('Delete failed', 'error');
