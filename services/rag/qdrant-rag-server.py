@@ -72,6 +72,9 @@ def normalize(text: str) -> str:
     text = text.replace('ํา', 'ำ')
     # Remove stray spaces between Thai characters caused by glyph-level extraction
     text = re.sub(r'(?<=[฀-๿]) (?=[฀-๿])', '', text)
+    # Fix spaced number separators: '๑๓ , ๕๐๐' → '๑๓,๕๐๐'
+    text = re.sub(r'(?<=[๐-๙])\s*,\s*(?=[๐-๙])', ',', text)
+    text = re.sub(r'(?<=[๐-๙])\s*\.\s*(?=[๐-๙])', '.', text)
     # Fix Thai digits misread as Arabic digits by Tesseract OCR
     thai_digits = {'๐':'0','๑':'1','๒':'2','๓':'3','๔':'4',
                    '๕':'5','๖':'6','๗':'7','๘':'8','๙':'9'}
