@@ -41,7 +41,7 @@ except ImportError:
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
-embedder = SentenceTransformer('Qwen/Qwen3-Embedding-4B', trust_remote_code=True)
+embedder = SentenceTransformer('BAAI/bge-m3')
 
 FONTS_DIR = Path(__file__).parent / "fonts"
 FONTS_DIR.mkdir(exist_ok=True)
@@ -69,20 +69,49 @@ except Exception:
 def normalize(text: str) -> str:
     text = unicodedata.normalize('NFC', text)
     # PyMuPDF splits Thai sara am (ำ U+0E33) into thanthakhat + sara aa
-    text = text.replace('ํา', 'ำ')  # ํา → ำ
+    text = text.replace('ํา', 'ำ')
     # Remove stray spaces between Thai characters caused by glyph-level extraction
     text = re.sub(r'(?<=[฀-๿]) (?=[฀-๿])', '', text)
+    # Fix Thai digits misread as Arabic digits by Tesseract OCR
+    thai_digits = {'๐':'0','๑':'1','๒':'2','๓':'3','๔':'4',
+                   '๕':'5','๖':'6','๗':'7','๘':'8','๙':'9'}
+    # Keep Thai digits as-is (don't convert) — fix Arabic→Thai only if surrounded by Thai text
+    # Fix common Latin lookalike substitutions from bad PDF font encoding
+    lookalikes = {
+        'า': 'า', 'ำ': 'ำ',  # catch copy-paste corruption
+        '': 'ก', '': 'ข', '': 'ค', '': 'ง',
+        '': 'จ', '': 'ช', '': 'ซ', '': 'ญ',
+        '': 'ด', '': 'ต', '': 'ถ', '': 'ท',
+        '': 'น', '': 'บ', '': 'ป', '': 'ผ',
+        '': 'พ', '': 'ฟ', '': 'ม', '': 'ย',
+        '': 'ร', '': 'ล', '': 'ว', '': 'ส',
+        '': 'ห', '': 'อ', '': 'า', '': 'ิ',
+        '': 'ี', '': 'ึ', '': 'ื', '': 'ุ',
+        '': 'ู', '': 'เ', '': 'แ', '': 'โ',
+        '': 'ใ', '': 'ไ', '': '็', '': '่',
+        '': '้', '': '๊', '': '๋', '': 'ั',
+        '': 'ำ', '': 'ํ', '': '์',
+    }
+    for wrong, correct in lookalikes.items():
+        text = text.replace(wrong, correct)
     return text
+
+
+def thai_ratio(text: str) -> float:
+    if not text:
+        return 0.0
+    return sum(1 for c in text if '\u0e00' <= c <= '\u0e7f') / len(text)
 
 
 def extract_text(content: bytes, filename: str) -> str:
     ext = filename.lower().rsplit('.', 1)[-1] if '.' in filename else ''
     if ext == 'pdf' and HAS_PDF:
         doc = fitz.open(stream=content, filetype="pdf")
-        text = "\n".join(page.get_text() for page in doc)
-        if text.strip():
-            return normalize(text)
-        # Scanned PDF — fall back to OCR
+        text = normalize("\n".join(page.get_text() for page in doc))
+        # Fall back to OCR if: no text, or Thai doc with suspiciously low Thai chars (bad font encoding)
+        needs_ocr = not text.strip() or (len(text) > 50 and thai_ratio(text) < 0.05)
+        if not needs_ocr:
+            return text
         if HAS_OCR:
             pages = []
             for page in doc:
@@ -93,7 +122,7 @@ def extract_text(content: bytes, filename: str) -> str:
                     config="--psm 3 --oem 1"
                 ))
             return normalize("\n".join(pages))
-        return ""
+        return text
     if ext == 'docx' and HAS_DOCX:
         doc = DocxDocument(io.BytesIO(content))
         return normalize("\n".join(p.text for p in doc.paragraphs if p.text.strip()))
