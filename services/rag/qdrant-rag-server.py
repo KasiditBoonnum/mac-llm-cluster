@@ -647,6 +647,20 @@ tbody tr:last-child td { border-bottom: none; }
 
 <div class="toast" id="toast"></div>
 
+<!-- Replace confirm modal -->
+<div id="replace-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
+  <div style="background:#1e2124;border:1px solid #3a3f45;border-radius:12px;padding:32px 28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div style="font-size:18px;font-weight:700;color:#f0f2f4;margin-bottom:12px;">File already exists</div>
+    <div style="font-size:14px;color:#aab0b6;margin-bottom:8px;">This file is already in the RAG:</div>
+    <div id="replace-filename" style="font-size:15px;font-weight:600;color:#03a96b;background:#2f3337;border-radius:6px;padding:10px 14px;margin-bottom:20px;word-break:break-all;"></div>
+    <div style="font-size:14px;color:#aab0b6;margin-bottom:24px;">Do you want to replace it with the new version?</div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;">
+      <button id="replace-cancel" class="btn" style="background:#3a3f45;color:#f0f2f4;">Keep existing</button>
+      <button id="replace-confirm" class="btn btn-green">Replace</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function fmtSize(bytes) {
   if (!bytes) return '—';
@@ -773,16 +787,35 @@ function uploadFiles(files) {
     var p = Math.round((done / files.length) * 100);
     fill.style.width = p + '%'; pct.textContent = p + '%';
     label.textContent = 'Uploading ' + file.name + ' (' + (done + 1) + ' / ' + files.length + ')';
-    var form = new FormData();
-    form.append('file', file);
-    fetch('/upload', { method: 'POST', body: form })
-      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, d: d }; }); })
-      .then(function(res) {
-        if (res.ok) toast('&#10003; ' + res.d.filename + ' — ' + res.d.chunks + ' chunks');
-        else toast('Failed: ' + (res.d.detail || file.name), 'error');
-      })
-      .catch(function() { toast('Error: ' + file.name, 'error'); })
-      .finally(function() { done++; next(); });
+    var exists = allDocs.some(function(d) { return d.filename === file.name; });
+    function doUpload() {
+      var form = new FormData();
+      form.append('file', file);
+      fetch('/upload', { method: 'POST', body: form })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, d: d }; }); })
+        .then(function(res) {
+          if (res.ok) toast('&#10003; ' + res.d.filename + ' — ' + res.d.chunks + ' chunks');
+          else toast('Failed: ' + (res.d.detail || file.name), 'error');
+        })
+        .catch(function() { toast('Error: ' + file.name, 'error'); })
+        .finally(function() { done++; next(); });
+    }
+    if (exists) {
+      var overlay = document.getElementById('replace-overlay');
+      document.getElementById('replace-filename').textContent = file.name;
+      overlay.style.display = 'flex';
+      function closeModal() { overlay.style.display = 'none'; }
+      document.getElementById('replace-confirm').onclick = function() {
+        closeModal();
+        fetch('/documents/by-filename?filename=' + encodeURIComponent(file.name), { method: 'DELETE' })
+          .then(doUpload).catch(doUpload);
+      };
+      document.getElementById('replace-cancel').onclick = function() {
+        closeModal(); done++; next();
+      };
+    } else {
+      doUpload();
+    }
   }
   next();
 }
