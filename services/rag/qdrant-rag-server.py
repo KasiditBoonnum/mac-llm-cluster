@@ -17,6 +17,7 @@ import uvicorn
 import uuid
 import io
 import datetime
+import unicodedata
 
 try:
     import fitz  # PyMuPDF
@@ -58,13 +59,17 @@ except Exception:
     pass
 
 
+def normalize(text: str) -> str:
+    return unicodedata.normalize('NFC', text)
+
+
 def extract_text(content: bytes, filename: str) -> str:
     ext = filename.lower().rsplit('.', 1)[-1] if '.' in filename else ''
     if ext == 'pdf' and HAS_PDF:
         doc = fitz.open(stream=content, filetype="pdf")
         text = "\n".join(page.get_text() for page in doc)
         if text.strip():
-            return text
+            return normalize(text)
         # Scanned PDF — fall back to OCR
         if HAS_OCR:
             pages = []
@@ -72,12 +77,12 @@ def extract_text(content: bytes, filename: str) -> str:
                 pix = page.get_pixmap(dpi=300)
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 pages.append(pytesseract.image_to_string(img, lang="tha+eng"))
-            return "\n".join(pages)
+            return normalize("\n".join(pages))
         return ""
     if ext == 'docx' and HAS_DOCX:
         doc = DocxDocument(io.BytesIO(content))
-        return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
-    return content.decode('utf-8', errors='ignore')
+        return normalize("\n".join(p.text for p in doc.paragraphs if p.text.strip()))
+    return normalize(content.decode('utf-8', errors='ignore'))
 
 
 def chunk_text(text: str) -> list[str]:
