@@ -45,7 +45,7 @@ class InferenceRequest(BaseModel):
 
 
 def is_exo_model(model: str) -> bool:
-    return "exo" in model.lower() or "30b" in model or "64k" in model
+    return "exo" in model.lower()
 
 
 def is_deepseek_model(model: str) -> bool:
@@ -61,7 +61,7 @@ def switch_node3_to_deepseek():
         timeout=10)
     time.sleep(2)
     requests.post(f"{OLLAMA_NODES['node3']}/api/generate",
-        json={"model": "deepseek-coder-v2:33b-instruct-q4_K_M", "prompt": "", "keep_alive": -1},
+        json={"model": "deepseek-coder:33b-instruct-q4_K_M", "prompt": "", "keep_alive": -1},
         timeout=30)
     state.node3_model = "deepseek"
     state.node3_last_deepseek = datetime.now()
@@ -73,7 +73,7 @@ def switch_node3_to_qwen():
         return
     print(f"[{datetime.now()}] Node 3: DeepSeek → Qwen")
     requests.post(f"{OLLAMA_NODES['node3']}/api/generate",
-        json={"model": "deepseek-coder-v2:33b-instruct-q4_K_M", "prompt": "", "keep_alive": 0},
+        json={"model": "deepseek-coder:33b-instruct-q4_K_M", "prompt": "", "keep_alive": 0},
         timeout=10)
     time.sleep(2)
     requests.post(f"{OLLAMA_NODES['node3']}/api/generate",
@@ -91,7 +91,7 @@ def load_exo():
     subprocess.Popen([
         "exo", "run",
         "--nodes", "llm-01.local:5678,llm-02.local:5678,llm-03.local:5678",
-        "--model", "Qwen/Qwen3-30B-A3B:q5_K_M",
+        "--model", "Qwen3.6-35B-A3B-8bit",
         "--context-size", "65536",
         "--kv-cache-type", "q16_0",
         "--listen", "0.0.0.0:5678"

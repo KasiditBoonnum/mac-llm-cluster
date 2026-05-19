@@ -83,7 +83,7 @@ def inject_rag(messages: list) -> list:
 
 
 class ChatRequest(BaseModel):
-    model: str = "qwen2.5:32b-instruct-q4_K_M"
+    model: str = "phi4:latest"
     messages: list
     stream: bool = False
     use_rag: bool = True
@@ -108,10 +108,10 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
 @app.get("/v1/models")
 async def list_models(key: str = Depends(verify_key)):
     return {"object": "list", "data": [
-        {"id": "phi4:14b-q5_K_M", "object": "model"},
+        {"id": "phi4:latest", "object": "model"},
         {"id": "qwen2.5:32b-instruct-q4_K_M", "object": "model"},
-        {"id": "deepseek-coder-v2:33b-instruct-q4_K_M", "object": "model"},
-        {"id": "exo:qwen3-30b", "object": "model"},
+        {"id": "deepseek-coder:33b-instruct-q4_K_M", "object": "model"},
+        {"id": "exo:Qwen3.6-35B-A3B-8bit", "object": "model"},
     ]}
 
 
