@@ -16,6 +16,7 @@ from collections import defaultdict
 import uvicorn
 import uuid
 import io
+import re
 import datetime
 import unicodedata
 
@@ -60,7 +61,12 @@ except Exception:
 
 
 def normalize(text: str) -> str:
-    return unicodedata.normalize('NFC', text)
+    text = unicodedata.normalize('NFC', text)
+    # PyMuPDF splits Thai sara am (ำ U+0E33) into thanthakhat + sara aa
+    text = text.replace('ํา', 'ำ')  # ํา → ำ
+    # Remove stray spaces between Thai characters caused by glyph-level extraction
+    text = re.sub(r'(?<=[฀-๿]) (?=[฀-๿])', '', text)
+    return text
 
 
 def extract_text(content: bytes, filename: str) -> str:
