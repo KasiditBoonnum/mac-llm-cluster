@@ -25,11 +25,15 @@ if ! curl -sf http://localhost:6333/healthz > /dev/null; then
 fi
 echo "    Qdrant OK (localhost:6333)"
 
-# 2. Install RAG server Python packages
+# 2. Install Tesseract OCR with Thai + English language packs
+echo "==> Installing Tesseract OCR..."
+brew install tesseract tesseract-lang --quiet 2>/dev/null || true
+
+# 3. Install RAG server Python packages
 echo "==> Installing RAG server dependencies..."
 "$PYTHON" -m pip install -r "$RAG_DIR/requirements.txt" --break-system-packages --quiet
 
-# 3. Install gateway RAG packages (qdrant-client + sentence-transformers)
+# 4. Install gateway RAG packages (qdrant-client + sentence-transformers)
 echo "==> Installing gateway RAG dependencies..."
 "$PYTHON" -m pip install \
     "qdrant-client>=1.7.0" \

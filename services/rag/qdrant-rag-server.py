@@ -30,6 +30,13 @@ try:
 except ImportError:
     HAS_DOCX = False
 
+try:
+    import pytesseract
+    from PIL import Image
+    HAS_OCR = True
+except ImportError:
+    HAS_OCR = False
+
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
@@ -55,7 +62,18 @@ def extract_text(content: bytes, filename: str) -> str:
     ext = filename.lower().rsplit('.', 1)[-1] if '.' in filename else ''
     if ext == 'pdf' and HAS_PDF:
         doc = fitz.open(stream=content, filetype="pdf")
-        return "\n".join(page.get_text() for page in doc)
+        text = "\n".join(page.get_text() for page in doc)
+        if text.strip():
+            return text
+        # Scanned PDF — fall back to OCR
+        if HAS_OCR:
+            pages = []
+            for page in doc:
+                pix = page.get_pixmap(dpi=300)
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                pages.append(pytesseract.image_to_string(img, lang="tha+eng"))
+            return "\n".join(pages)
+        return ""
     if ext == 'docx' and HAS_DOCX:
         doc = DocxDocument(io.BytesIO(content))
         return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
@@ -151,6 +169,7 @@ async def get_stats():
             "total_points": info.points_count,
             "pdf_support": HAS_PDF,
             "docx_support": HAS_DOCX,
+            "ocr_support": HAS_OCR,
         }
     except Exception as e:
         return {"error": str(e)}
@@ -702,7 +721,8 @@ function loadStats() {
       document.getElementById('stat-col').textContent = d.collection;
     document.getElementById('support-chips').innerHTML =
       '<span class="chip ' + (d.pdf_support  ? 'on' : 'off') + '">PDF '  + (d.pdf_support  ? '&#10003;' : '&#10007;') + '</span>' +
-      '<span class="chip ' + (d.docx_support ? 'on' : 'off') + '">DOCX ' + (d.docx_support ? '&#10003;' : '&#10007;') + '</span>';
+      '<span class="chip ' + (d.docx_support ? 'on' : 'off') + '">DOCX ' + (d.docx_support ? '&#10003;' : '&#10007;') + '</span>' +
+      '<span class="chip ' + (d.ocr_support  ? 'on' : 'off') + '">OCR (TH/EN) '  + (d.ocr_support  ? '&#10003;' : '&#10007;') + '</span>';
   }).catch(function(){});
 }
 
