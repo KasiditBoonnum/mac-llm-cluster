@@ -116,15 +116,14 @@ def extract_text(content: bytes, filename: str) -> str:
         doc = fitz.open(stream=content, filetype="pdf")
         text = normalize("\n".join(page.get_text() for page in doc))
         # Fall back to OCR if: no text, or Thai doc with suspiciously low Thai chars (bad font encoding)
-        needs_ocr = not text.strip() or (len(text) > 50 and thai_ratio(text) < 0.15)
+        needs_ocr = not text.strip() or (len(text) > 50 and thai_ratio(text) < 0.05)
         if not needs_ocr:
             return text
         if HAS_OCR:
             pages = []
             for page in doc:
-                pix = page.get_pixmap(dpi=400)
+                pix = page.get_pixmap(dpi=300)
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                img = preprocess_for_ocr(img)
                 pages.append(pytesseract.image_to_string(
                     img, lang="tha+eng",
                     config="--psm 3 --oem 1"
