@@ -14,9 +14,9 @@ from collections import deque
 app = FastAPI()
 
 OLLAMA_NODES = {
-    "phi4": "http://llm-01.local:11434",
-    "qwen": "http://llm-02.local:11434",
-    "node3": "http://llm-03.local:11435"
+    "phi4":  "http://llm-01.local:11434",   # phi4:latest
+    "qwen":  "http://llm-02.local:11434",   # qwen2.5:32b-instruct-q4_K_M
+    "node3": "http://llm-03.local:11434",   # qwen2.5:32b-instruct-q4_K_M / deepseek-coder:33b-instruct-q4_K_M (switches)
 }
 
 EXO_ENDPOINT = "http://llm-01.local:5678"
@@ -46,6 +46,10 @@ class InferenceRequest(BaseModel):
 
 def is_exo_model(model: str) -> bool:
     return "exo" in model.lower()
+
+
+def is_phi_model(model: str) -> bool:
+    return "phi" in model.lower()
 
 
 def is_deepseek_model(model: str) -> bool:
@@ -183,6 +187,8 @@ async def process_task(task):
             switch_node3_to_deepseek()
             response = await run_ollama(task_id, request, OLLAMA_NODES['node3'])
             state.node3_last_deepseek = datetime.now()
+        elif is_phi_model(request.model):
+            response = await run_ollama(task_id, request, OLLAMA_NODES['phi4'])
         else:
             response = await run_ollama(task_id, request, OLLAMA_NODES['qwen'])
         state.active_tasks[task_id]["status"] = "completed"

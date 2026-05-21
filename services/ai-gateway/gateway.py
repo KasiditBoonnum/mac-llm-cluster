@@ -108,10 +108,10 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
 @app.get("/v1/models")
 async def list_models(key: str = Depends(verify_key)):
     return {"object": "list", "data": [
-        {"id": "phi4:latest", "object": "model"},
-        {"id": "qwen2.5:32b-instruct-q4_K_M", "object": "model"},
-        {"id": "deepseek-coder:33b-instruct-q4_K_M", "object": "model"},
-        {"id": "exo:Qwen3.6-35B-A3B-8bit", "object": "model"},
+        {"id": "phi4:latest",                        "object": "model", "owned_by": "llm-01"},
+        {"id": "qwen2.5:32b-instruct-q4_K_M",        "object": "model", "owned_by": "llm-02,llm-03"},
+        {"id": "deepseek-coder:33b-instruct-q4_K_M", "object": "model", "owned_by": "llm-03"},
+        {"id": "exo:Qwen3.6-35B-A3B-8bit",           "object": "model", "owned_by": "llm-01,llm-02,llm-03"},
     ]}
 
 
