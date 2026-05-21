@@ -6,7 +6,7 @@
     <string>com.llm.ollama</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/ollama</string>
+        <string>/opt/homebrew/bin/ollama</string>
         <string>serve</string>
     </array>
     <key>EnvironmentVariables</key>
