@@ -3,14 +3,14 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.llm.queue-manager</string>
+    <string>com.llm.ai-gateway</string>
     <key>ProgramArguments</key>
     <array>
         <string>YOUR_PYTHON</string>
-        <string>/Users/YOUR_USERNAME/mac-llm-cluster/services/queue/intelligent-queue-manager.py</string>
+        <string>/Users/YOUR_USERNAME/mac-llm-cluster/services/ai-gateway/gateway.py</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/YOUR_USERNAME/mac-llm-cluster/services/queue</string>
+    <string>/Users/YOUR_USERNAME/mac-llm-cluster/services/ai-gateway</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
@@ -21,8 +21,8 @@
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/tmp/queue-manager.log</string>
+    <string>/tmp/ai-gateway.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/queue-manager.err</string>
+    <string>/tmp/ai-gateway.err</string>
 </dict>
 </plist>
