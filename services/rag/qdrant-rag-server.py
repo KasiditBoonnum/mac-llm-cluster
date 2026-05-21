@@ -857,6 +857,20 @@ tbody tr:last-child td { border-bottom: none; }
 
 <div class="toast" id="toast"></div>
 
+<!-- Delete single file modal -->
+<div id="del-file-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
+  <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid var(--red);border-radius:12px;padding:32px 28px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div style="font-size:26px;font-weight:700;color:var(--text);margin-bottom:14px;">Delete document?</div>
+    <div style="font-size:22px;color:var(--text-muted);margin-bottom:10px;">This will permanently remove:</div>
+    <div id="del-file-name" style="font-size:23px;font-weight:600;color:var(--red);background:var(--red-dim);border:1px solid rgba(239,68,68,0.25);border-radius:6px;padding:10px 14px;margin-bottom:20px;word-break:break-all;"></div>
+    <div style="font-size:22px;color:var(--text-muted);margin-bottom:28px;">This cannot be undone.</div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;">
+      <button id="del-file-cancel" class="btn btn-outline">Cancel</button>
+      <button id="del-file-confirm" class="btn btn-del" style="padding:8px 18px;">Delete</button>
+    </div>
+  </div>
+</div>
+
 <!-- Replace confirm modal -->
 <div id="replace-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
   <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid var(--green);border-radius:12px;padding:32px 28px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
@@ -1019,20 +1033,28 @@ document.getElementById('doc-tbody').addEventListener('click', function(e) {
 });
 
 function deleteDoc(filename) {
-  if (!confirm('Delete all chunks for "' + filename + '"?\\nThis cannot be undone.')) return;
-  fetch('/documents/by-filename?filename=' + encodeURIComponent(filename), { method: 'DELETE' })
-    .then(function(r) {
-      if (r.ok) {
-        toast('Deleted: ' + filename);
-        allDocs = allDocs.filter(function(d) { return d.filename !== filename; });
-        filteredDocs = filteredDocs.filter(function(d) { return d.filename !== filename; });
-        document.getElementById('stat-files').textContent = allDocs.length.toLocaleString();
-        renderTable();
-        loadStats();
-      } else {
-        toast('Delete failed', 'error');
-      }
-    }).catch(function() { toast('Delete failed', 'error'); });
+  var overlay = document.getElementById('del-file-overlay');
+  document.getElementById('del-file-name').textContent = filename;
+  overlay.style.display = 'flex';
+  document.getElementById('del-file-cancel').onclick = function() {
+    overlay.style.display = 'none';
+  };
+  document.getElementById('del-file-confirm').onclick = function() {
+    overlay.style.display = 'none';
+    fetch('/documents/by-filename?filename=' + encodeURIComponent(filename), { method: 'DELETE' })
+      .then(function(r) {
+        if (r.ok) {
+          toast('Deleted: ' + filename);
+          allDocs = allDocs.filter(function(d) { return d.filename !== filename; });
+          filteredDocs = filteredDocs.filter(function(d) { return d.filename !== filename; });
+          document.getElementById('stat-files').textContent = allDocs.length.toLocaleString();
+          renderTable();
+          loadStats();
+        } else {
+          toast('Delete failed', 'error');
+        }
+      }).catch(function() { toast('Delete failed', 'error'); });
+  };
 }
 
 // ── Upload ──
