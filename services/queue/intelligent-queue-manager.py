@@ -11,6 +11,11 @@ import uuid
 from datetime import datetime
 from collections import deque
 
+# Characters invalid inside JSON strings (control chars except \t \n \r)
+_CTRL_STRIP = dict.fromkeys(
+    list(range(0x00, 0x09)) + [0x0b, 0x0c] + list(range(0x0e, 0x20)) + [0x7f]
+)
+
 app = FastAPI()
 
 OLLAMA_NODES = {
@@ -207,6 +212,8 @@ async def run_ollama(task_id, request, node_url):
         timeout=300)
     if response.status_code == 200:
         data = response.json()
+        if isinstance(data.get("response"), str):
+            data["response"] = data["response"].translate(_CTRL_STRIP)
         elapsed = time.time() - start
         tokens = data.get("eval_count", 0)
         tok_s = tokens / elapsed if elapsed > 0 else 0
