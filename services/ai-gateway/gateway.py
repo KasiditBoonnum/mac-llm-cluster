@@ -123,10 +123,10 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
         messages = inject_rag(messages)
     if req.scrub_pii and PII_AVAILABLE:
         messages = scrub_messages(messages)
-    prompt = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
     resp = requests.post(
         f"{QUEUE_URL}/v1/chat/completions",
-        json={"model": req.model, "prompt": prompt, "stream": req.stream},
+        json={"model": req.model, "messages": messages, "stream": req.stream},
+        headers={"Authorization": "Bearer sk-llm-cluster"},
         timeout=600,
     )
     if resp.status_code == 200:
