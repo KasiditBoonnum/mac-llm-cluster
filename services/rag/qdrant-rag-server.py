@@ -318,6 +318,16 @@ async def list_documents():
     ]}
 
 
+@app.delete("/documents/all")
+async def delete_all_documents():
+    qdrant.delete_collection(COLLECTION)
+    qdrant.create_collection(
+        collection_name=COLLECTION,
+        vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
+    )
+    return {"status": "deleted_all"}
+
+
 @app.delete("/documents/by-filename")
 async def delete_by_filename(filename: str = Query(...)):
     qdrant.delete(
@@ -788,7 +798,10 @@ tbody tr:last-child td { border-bottom: none; }
   <div class="card">
     <div class="card-head">
       <span class="card-title">Document Library</span>
-      <button class="btn btn-outline" id="refresh-btn">&#8635;&nbsp; Refresh</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-del" id="delete-all-btn">&#128465;&nbsp; Delete All</button>
+        <button class="btn btn-outline" id="refresh-btn">&#8635;&nbsp; Refresh</button>
+      </div>
     </div>
     <div class="card-body">
       <div class="filter-row">
@@ -854,6 +867,32 @@ tbody tr:last-child td { border-bottom: none; }
     <div style="display:flex;gap:12px;justify-content:flex-end;">
       <button id="replace-cancel" class="btn" style="background:#3a3f45;color:#f0f2f4;">Keep existing</button>
       <button id="replace-confirm" class="btn btn-green">Replace</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete All — step 1 modal -->
+<div id="del-all-overlay-1" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
+  <div style="background:#1e2124;border:1px solid #3a3f45;border-radius:12px;padding:32px 28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div style="font-size:18px;font-weight:700;color:#f0f2f4;margin-bottom:12px;">Delete all documents?</div>
+    <div style="font-size:14px;color:#aab0b6;margin-bottom:24px;">This will permanently remove every file and chunk from the knowledge base. This cannot be undone.</div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;">
+      <button id="del-all-cancel-1" class="btn" style="background:#3a3f45;color:#f0f2f4;">Cancel</button>
+      <button id="del-all-next" class="btn" style="background:#ef4444;color:#fff;">Continue &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete All — step 2 modal -->
+<div id="del-all-overlay-2" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:310;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
+  <div style="background:#1e2124;border:1px solid #ef4444;border-radius:12px;padding:32px 28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(239,68,68,0.2);">
+    <div style="font-size:18px;font-weight:700;color:#ef4444;margin-bottom:12px;">Are you absolutely sure?</div>
+    <div style="font-size:14px;color:#aab0b6;margin-bottom:8px;">You are about to delete:</div>
+    <div id="del-all-summary" style="font-size:15px;font-weight:600;color:#ef4444;background:#2f1f1f;border-radius:6px;padding:10px 14px;margin-bottom:24px;"></div>
+    <div style="font-size:14px;color:#aab0b6;margin-bottom:24px;">This action is <strong style="color:#f0f2f4;">irreversible</strong>.</div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;">
+      <button id="del-all-cancel-2" class="btn" style="background:#3a3f45;color:#f0f2f4;">Cancel</button>
+      <button id="del-all-confirm" class="btn" style="background:#ef4444;color:#fff;">Delete Everything</button>
     </div>
   </div>
 </div>
@@ -1098,6 +1137,40 @@ function doSearch() {
 document.getElementById('search-btn').addEventListener('click', doSearch);
 document.getElementById('search-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') doSearch(); });
 document.getElementById('refresh-btn').addEventListener('click', loadDocuments);
+
+// ── Delete All ──
+document.getElementById('delete-all-btn').addEventListener('click', function() {
+  document.getElementById('del-all-overlay-1').style.display = 'flex';
+});
+document.getElementById('del-all-cancel-1').addEventListener('click', function() {
+  document.getElementById('del-all-overlay-1').style.display = 'none';
+});
+document.getElementById('del-all-next').addEventListener('click', function() {
+  document.getElementById('del-all-overlay-1').style.display = 'none';
+  var totalFiles = allDocs.length;
+  var totalChunks = allDocs.reduce(function(s, d) { return s + d.chunks; }, 0);
+  document.getElementById('del-all-summary').textContent =
+    totalFiles + ' file' + (totalFiles !== 1 ? 's' : '') + ' — ' +
+    totalChunks.toLocaleString() + ' chunk' + (totalChunks !== 1 ? 's' : '');
+  document.getElementById('del-all-overlay-2').style.display = 'flex';
+});
+document.getElementById('del-all-cancel-2').addEventListener('click', function() {
+  document.getElementById('del-all-overlay-2').style.display = 'none';
+});
+document.getElementById('del-all-confirm').addEventListener('click', function() {
+  document.getElementById('del-all-overlay-2').style.display = 'none';
+  fetch('/documents/all', { method: 'DELETE' })
+    .then(function(r) {
+      if (r.ok) {
+        toast('All documents deleted');
+        allDocs = []; filteredDocs = [];
+        document.getElementById('stat-files').textContent = '0';
+        renderTable(); loadStats();
+      } else {
+        toast('Delete failed', 'error');
+      }
+    }).catch(function() { toast('Delete failed', 'error'); });
+});
 
 // ── Init ──
 checkHealth(); loadStats(); loadDocuments();
