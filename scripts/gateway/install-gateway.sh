@@ -7,26 +7,32 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LAUNCHD_DIR="$REPO_ROOT/config/launchd"
-PYTHON="$(which python3.12 || which python3)"
+VENV_DIR="$REPO_ROOT/services/ai-gateway/.venv"
+PYTHON_BIN="$(which python3.12 || which python3)"
 
-echo "==> Python: $PYTHON"
+echo "==> Python: $PYTHON_BIN"
 
 # 1. Fix nginx port 8080 conflict (Homebrew nginx default server block)
 NGINX_CONF="/opt/homebrew/etc/nginx/nginx.conf"
 if [ -f "$NGINX_CONF" ] && grep -q "listen       8080;" "$NGINX_CONF"; then
-    echo "==> nginx.conf uses port 8080 — moving default server to 8079 to free port for queue manager"
+    echo "==> nginx.conf uses port 8080 - moving default server to 8079 to free port for queue manager"
     sudo sed -i '' 's/listen       8080;/listen       8079;/' "$NGINX_CONF"
     sudo nginx -t && sudo nginx -s reload
     echo "    nginx reloaded"
 else
-    echo "==> nginx port 8080 not conflicting — OK"
+    echo "==> nginx port 8080 not conflicting - OK"
 fi
 
-# 2. Install Python dependencies
+# 2. Create venv and install dependencies
+echo "==> Creating virtual environment at $VENV_DIR ..."
+"$PYTHON_BIN" -m venv "$VENV_DIR"
+PYTHON="$VENV_DIR/bin/python"
+
 echo "==> Installing dependencies..."
-"$PYTHON" -m pip install fastapi uvicorn requests pydantic \
-    qdrant-client sentence-transformers \
-    --break-system-packages --quiet
+"$PYTHON" -m pip install -r "$REPO_ROOT/services/ai-gateway/requirements.txt" --quiet
+
+echo "==> Downloading spaCy model for Presidio..."
+"$PYTHON" -m spacy download en_core_web_lg --quiet
 
 # 3. Install queue manager
 QUEUE_PLIST_SRC="$LAUNCHD_DIR/com.llm.queue-manager.plist"
