@@ -859,13 +859,13 @@ tbody tr:last-child td { border-bottom: none; }
 
 <!-- Replace confirm modal -->
 <div id="replace-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
-  <div style="background:#1e2124;border:1px solid #3a3f45;border-radius:12px;padding:32px 28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
-    <div style="font-size:18px;font-weight:700;color:#f0f2f4;margin-bottom:12px;">File already exists</div>
-    <div style="font-size:14px;color:#aab0b6;margin-bottom:8px;">This file is already in the RAG:</div>
-    <div id="replace-filename" style="font-size:15px;font-weight:600;color:#03a96b;background:#2f3337;border-radius:6px;padding:10px 14px;margin-bottom:20px;word-break:break-all;"></div>
-    <div style="font-size:14px;color:#aab0b6;margin-bottom:24px;">Do you want to replace it with the new version?</div>
+  <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid var(--green);border-radius:12px;padding:32px 28px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div style="font-size:26px;font-weight:700;color:var(--text);margin-bottom:14px;">File already exists</div>
+    <div style="font-size:22px;color:var(--text-muted);margin-bottom:10px;">This file is already in the RAG:</div>
+    <div id="replace-filename" style="font-size:23px;font-weight:600;color:var(--green);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:20px;word-break:break-all;"></div>
+    <div style="font-size:22px;color:var(--text-muted);margin-bottom:28px;">Do you want to replace it with the new version?</div>
     <div style="display:flex;gap:12px;justify-content:flex-end;">
-      <button id="replace-cancel" class="btn" style="background:#3a3f45;color:#f0f2f4;">Keep existing</button>
+      <button id="replace-cancel" class="btn btn-outline">Keep existing</button>
       <button id="replace-confirm" class="btn btn-green">Replace</button>
     </div>
   </div>
@@ -873,26 +873,26 @@ tbody tr:last-child td { border-bottom: none; }
 
 <!-- Delete All — step 1 modal -->
 <div id="del-all-overlay-1" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
-  <div style="background:#1e2124;border:1px solid #3a3f45;border-radius:12px;padding:32px 28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
-    <div style="font-size:18px;font-weight:700;color:#f0f2f4;margin-bottom:12px;">Delete all documents?</div>
-    <div style="font-size:14px;color:#aab0b6;margin-bottom:24px;">This will permanently remove every file and chunk from the knowledge base. This cannot be undone.</div>
+  <div style="background:var(--panel);border:1px solid var(--border);border-top:3px solid var(--red);border-radius:12px;padding:32px 28px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div style="font-size:26px;font-weight:700;color:var(--text);margin-bottom:14px;">Delete all documents?</div>
+    <div style="font-size:22px;color:var(--text-muted);margin-bottom:28px;">This will permanently remove every file and chunk from the knowledge base. This cannot be undone.</div>
     <div style="display:flex;gap:12px;justify-content:flex-end;">
-      <button id="del-all-cancel-1" class="btn" style="background:#3a3f45;color:#f0f2f4;">Cancel</button>
-      <button id="del-all-next" class="btn" style="background:#ef4444;color:#fff;">Continue &rarr;</button>
+      <button id="del-all-cancel-1" class="btn btn-outline">Cancel</button>
+      <button id="del-all-next" class="btn btn-del" style="padding:8px 18px;">Continue &rarr;</button>
     </div>
   </div>
 </div>
 
 <!-- Delete All — step 2 modal -->
 <div id="del-all-overlay-2" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:310;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
-  <div style="background:#1e2124;border:1px solid #ef4444;border-radius:12px;padding:32px 28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(239,68,68,0.2);">
-    <div style="font-size:18px;font-weight:700;color:#ef4444;margin-bottom:12px;">Are you absolutely sure?</div>
-    <div style="font-size:14px;color:#aab0b6;margin-bottom:8px;">You are about to delete:</div>
-    <div id="del-all-summary" style="font-size:15px;font-weight:600;color:#ef4444;background:#2f1f1f;border-radius:6px;padding:10px 14px;margin-bottom:24px;"></div>
-    <div style="font-size:14px;color:#aab0b6;margin-bottom:24px;">This action is <strong style="color:#f0f2f4;">irreversible</strong>.</div>
+  <div style="background:var(--panel);border:1px solid var(--red);border-top:3px solid var(--red);border-radius:12px;padding:32px 28px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(239,68,68,0.15);">
+    <div style="font-size:26px;font-weight:700;color:var(--red);margin-bottom:14px;">Are you absolutely sure?</div>
+    <div style="font-size:22px;color:var(--text-muted);margin-bottom:10px;">You are about to delete:</div>
+    <div id="del-all-summary" style="font-size:23px;font-weight:600;color:var(--red);background:var(--red-dim);border:1px solid rgba(239,68,68,0.25);border-radius:6px;padding:10px 14px;margin-bottom:20px;"></div>
+    <div style="font-size:22px;color:var(--text-muted);margin-bottom:28px;">This action is <strong style="color:var(--text);">irreversible</strong>.</div>
     <div style="display:flex;gap:12px;justify-content:flex-end;">
-      <button id="del-all-cancel-2" class="btn" style="background:#3a3f45;color:#f0f2f4;">Cancel</button>
-      <button id="del-all-confirm" class="btn" style="background:#ef4444;color:#fff;">Delete Everything</button>
+      <button id="del-all-cancel-2" class="btn btn-outline">Cancel</button>
+      <button id="del-all-confirm" class="btn btn-del" style="padding:8px 18px;">Delete Everything</button>
     </div>
   </div>
 </div>
