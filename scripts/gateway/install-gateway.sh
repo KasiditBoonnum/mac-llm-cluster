@@ -71,7 +71,18 @@ launchctl unload "$GW_PLIST_DEST" 2>/dev/null || true
 launchctl load -w "$GW_PLIST_DEST"
 echo "    AI gateway started (com.llm.ai-gateway)"
 
-# 5. Verify
+# 5. Install SSH tunnels
+for NODE in llm02 llm03; do
+    TUNNEL_PLIST_SRC="$LAUNCHD_DIR/com.llm.ssh-tunnel-$NODE.plist"
+    TUNNEL_PLIST_DEST="$HOME/Library/LaunchAgents/com.llm.ssh-tunnel-$NODE.plist"
+    echo "==> Installing SSH tunnel to $NODE..."
+    cp "$TUNNEL_PLIST_SRC" "$TUNNEL_PLIST_DEST"
+    launchctl unload "$TUNNEL_PLIST_DEST" 2>/dev/null || true
+    launchctl load -w "$TUNNEL_PLIST_DEST"
+    echo "    SSH tunnel started (com.llm.ssh-tunnel-$NODE)"
+done
+
+# 6. Verify
 sleep 4
 echo ""
 echo "==> Verifying..."
