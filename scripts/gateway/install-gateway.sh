@@ -7,7 +7,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LAUNCHD_DIR="$REPO_ROOT/config/launchd"
-PYTHON="$(which python3)"
+PYTHON="$(which python3.12 || which python3)"
 
 echo "==> Python: $PYTHON"
 
