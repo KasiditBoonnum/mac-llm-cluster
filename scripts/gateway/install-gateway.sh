@@ -34,7 +34,20 @@ echo "==> Installing dependencies..."
 echo "==> Downloading spaCy model for Presidio..."
 "$PYTHON" -m spacy download en_core_web_lg --quiet
 
-# 3. Install queue manager
+# 3. Install LiteLLM proxy
+LITELLM="$VENV_DIR/bin/litellm"
+LITELLM_PLIST_SRC="$LAUNCHD_DIR/com.llm.litellm-proxy.plist"
+LITELLM_PLIST_DEST="$HOME/Library/LaunchAgents/com.llm.litellm-proxy.plist"
+echo "==> Installing LiteLLM proxy..."
+sed \
+    -e "s|YOUR_USERNAME|$(whoami)|g" \
+    -e "s|YOUR_LITELLM|$LITELLM|g" \
+    "$LITELLM_PLIST_SRC" > "$LITELLM_PLIST_DEST"
+launchctl unload "$LITELLM_PLIST_DEST" 2>/dev/null || true
+launchctl load -w "$LITELLM_PLIST_DEST"
+echo "    LiteLLM proxy started (com.llm.litellm-proxy)"
+
+# 4. Install queue manager
 QUEUE_PLIST_SRC="$LAUNCHD_DIR/com.llm.queue-manager.plist"
 QUEUE_PLIST_DEST="$HOME/Library/LaunchAgents/com.llm.queue-manager.plist"
 echo "==> Installing queue manager..."
