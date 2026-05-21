@@ -32,7 +32,7 @@ RAG_THRESHOLD = 0.45
 app = FastAPI(title="LLM Cluster Gateway")
 security = HTTPBearer()
 
-QUEUE_URL = "http://localhost:8080"
+QUEUE_URL = "http://localhost:8083"
 API_KEY_FILE = Path(__file__).parent / "api_key.txt"
 
 
