@@ -1,0 +1,23 @@
+model_list:
+  - model_name: phi4:latest
+    litellm_params:
+      model: ollama/phi4:latest
+      api_base: http://192.168.10.11:11434
+
+  - model_name: qwen2.5:32b-instruct-q4_K_M
+    litellm_params:
+      model: ollama/qwen2.5:32b-instruct-q4_K_M
+      api_base: http://192.168.10.12:11434
+
+  - model_name: qwen2.5:32b-instruct-q4_K_M
+    litellm_params:
+      model: ollama/qwen2.5:32b-instruct-q4_K_M
+      api_base: http://192.168.10.13:11434
+
+  - model_name: deepseek-coder:33b-instruct-q4_K_M
+    litellm_params:
+      model: ollama/deepseek-coder:33b-instruct-q4_K_M
+      api_base: http://192.168.10.13:11435
+
+general_settings:
+  master_key: sk-llm-cluster
