@@ -119,8 +119,19 @@ def unload_exo():
     print(f"[{datetime.now()}] ✅ Exo unloaded")
 
 
+COMPLETED_TASK_TTL = 300  # keep completed/error results for 5 minutes
+
+
 def check_idle_timeouts():
     now = datetime.now()
+    # Clean up old completed/error tasks
+    expired = [
+        tid for tid, t in state.active_tasks.items()
+        if t.get("status") in ("completed", "error")
+        and (now - datetime.fromisoformat(t["completed_at"])).total_seconds() > COMPLETED_TASK_TTL
+    ]
+    for tid in expired:
+        state.active_tasks.pop(tid, None)
     if state.node3_model == "deepseek" and state.node3_last_deepseek:
         idle = (now - state.node3_last_deepseek).total_seconds()
         if idle > NODE3_IDLE_TIMEOUT:
@@ -176,11 +187,11 @@ async def process_task(task):
             response = await run_ollama(task_id, request, OLLAMA_NODES['qwen'])
         state.active_tasks[task_id]["status"] = "completed"
         state.active_tasks[task_id]["result"] = response
+        state.active_tasks[task_id]["completed_at"] = datetime.now().isoformat()
     except Exception as e:
         state.active_tasks[task_id]["status"] = "error"
         state.active_tasks[task_id]["error"] = str(e)
-    finally:
-        state.active_tasks.pop(task_id, None)
+        state.active_tasks[task_id]["completed_at"] = datetime.now().isoformat()
 
 
 async def run_ollama(task_id, request, node_url):
