@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OpenAI-compatible AI Gateway with RAG"""
+"""OpenAI-compatible AI Gateway with RAG and PII scrubbing"""
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -15,6 +15,15 @@ try:
     RAG_AVAILABLE = True
 except Exception:
     RAG_AVAILABLE = False
+
+try:
+    from presidio_analyzer import AnalyzerEngine
+    from presidio_anonymizer import AnonymizerEngine
+    _analyzer = AnalyzerEngine()
+    _anonymizer = AnonymizerEngine()
+    PII_AVAILABLE = True
+except Exception:
+    PII_AVAILABLE = False
 
 RAG_COLLECTION = "documents"
 RAG_TOP_K = 3
@@ -82,11 +91,29 @@ def inject_rag(messages: list) -> list:
     return msgs
 
 
+def scrub_pii(text: str, language: str = "en") -> str:
+    """Replace PII entities with <ENTITY_TYPE> placeholders."""
+    results = _analyzer.analyze(text=text, language=language)
+    return _anonymizer.anonymize(text=text, analyzer_results=results).text
+
+
+def scrub_messages(messages: list) -> list:
+    """Scrub PII from user and system message content."""
+    scrubbed = []
+    for m in messages:
+        if m.get("role") in ("user", "system") and isinstance(m.get("content"), str):
+            scrubbed.append({**m, "content": scrub_pii(m["content"])})
+        else:
+            scrubbed.append(m)
+    return scrubbed
+
+
 class ChatRequest(BaseModel):
     model: str = "phi4:latest"
     messages: list
     stream: bool = False
     use_rag: bool = True
+    scrub_pii: bool = True
 
 
 @app.post("/v1/chat/completions")
@@ -94,6 +121,8 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
     messages = req.messages
     if req.use_rag and RAG_AVAILABLE:
         messages = inject_rag(messages)
+    if req.scrub_pii and PII_AVAILABLE:
+        messages = scrub_messages(messages)
     prompt = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
     resp = requests.post(
         f"{QUEUE_URL}/v1/chat/completions",
@@ -117,7 +146,7 @@ async def list_models(key: str = Depends(verify_key)):
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "rag": RAG_AVAILABLE}
+    return {"status": "healthy", "rag": RAG_AVAILABLE, "pii_scrubbing": PII_AVAILABLE}
 
 
 if __name__ == "__main__":
