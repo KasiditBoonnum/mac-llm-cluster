@@ -897,10 +897,6 @@ function loadStats() {
       document.getElementById('stat-chunks').textContent = d.total_points.toLocaleString();
     if (d.collection)
       document.getElementById('stat-col').textContent = d.collection;
-    document.getElementById('support-chips').innerHTML =
-      '<span class="chip ' + (d.pdf_support  ? 'on' : 'off') + '">PDF '  + (d.pdf_support  ? '&#10003;' : '&#10007;') + '</span>' +
-      '<span class="chip ' + (d.docx_support ? 'on' : 'off') + '">DOCX ' + (d.docx_support ? '&#10003;' : '&#10007;') + '</span>' +
-      '<span class="chip ' + (d.ocr_support  ? 'on' : 'off') + '">OCR (TH/EN) '  + (d.ocr_support  ? '&#10003;' : '&#10007;') + '</span>';
   }).catch(function(){});
 }
 
