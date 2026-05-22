@@ -24,3 +24,6 @@ class PresidioCallback(CustomLogger):
                 scrubbed.append(m)
         data["messages"] = scrubbed
         return data
+
+
+presidio_callback = PresidioCallback()
