@@ -118,6 +118,7 @@ class ChatRequest(BaseModel):
     stream: bool = False
     use_rag: bool = True
     scrub_pii: bool = True
+    show_log: bool = False
 
 
 @app.post("/v1/chat/completions")
@@ -158,6 +159,15 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
             f"prompt={prompt_tok}  completion={compl_tok}  total={total_tok}  "
             f"time={elapsed:.1f}s  speed={tok_s:.1f} tok/s"
         )
+        if req.show_log:
+            data["_stats"] = {
+                "model": req.model,
+                "prompt_tokens": prompt_tok,
+                "completion_tokens": compl_tok,
+                "total_tokens": total_tok,
+                "time_s": round(elapsed, 1),
+                "tok_s": round(tok_s, 1),
+            }
         return data
     raise HTTPException(status_code=resp.status_code, detail="Inference failed")
 
