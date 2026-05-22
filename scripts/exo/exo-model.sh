@@ -170,21 +170,35 @@ pick_test_interactive() {
     done
 }
 
+# Returns 0 if the model is responding with real content, 1 otherwise
+model_is_ready() {
+    local model="$1"
+    local resp
+    resp=$(curl -s --max-time 15 "$BASE_URL/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with one word: ready\"}],\"max_tokens\":10}" \
+        2>/dev/null || true)
+
+    python3 -c "
+import sys, json
+try:
+    d = json.loads('''$resp''' if False else sys.stdin.read())
+    content = (d.get('choices') or [{}])[0].get('message', {}).get('content') or ''
+    sys.exit(0 if content.strip() else 1)
+except Exception:
+    sys.exit(1)
+" <<< "$resp"
+}
+
 # ── Load model via place_instance API ─────────────────────────────────────────
 load_model() {
     local model="$1"
     local max_wait=300
-    local interval=3
+    local interval=30
     local elapsed=0
 
     info "Checking if model is already loaded..."
-    local resp
-    resp=$(curl -s --max-time 10 "$BASE_URL/v1/chat/completions" \
-        -H "Content-Type: application/json" \
-        -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}" \
-        2>/dev/null || true)
-
-    if echo "$resp" | grep -q '"content"'; then
+    if model_is_ready "$model"; then
         success "Model already loaded — ready"
         return
     fi
@@ -196,29 +210,24 @@ load_model() {
         -d "{\"model_id\":\"$model\",\"sharding\":\"Pipeline\",\"instance_meta\":\"MlxRing\",\"min_nodes\":1}" \
         2>/dev/null || true)
 
-    if echo "$place_resp" | grep -q '"detail"'; then
+    if echo "$place_resp" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if 'detail' in d and 'Command' not in d.get('message','') else 1)" 2>/dev/null; then
         error "place_instance failed: $(echo "$place_resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("detail","unknown"))' 2>/dev/null)"
         exit 1
     fi
 
-    info "Instance placement requested — waiting for model to load (up to ${max_wait}s)..."
+    info "Loading model shards across nodes (~30s)..."
     echo ""
 
     while true; do
         sleep $interval
         elapsed=$((elapsed + interval))
 
-        resp=$(curl -s --max-time 10 "$BASE_URL/v1/chat/completions" \
-            -H "Content-Type: application/json" \
-            -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}" \
-            2>/dev/null || true)
-
-        if echo "$resp" | grep -q '"content"'; then
+        if model_is_ready "$model"; then
             success "Model loaded and ready (${elapsed}s)"
             return
         fi
 
-        info "[${elapsed}s] loading shards across nodes..."
+        info "[${elapsed}s] still loading..."
 
         if (( elapsed >= max_wait )); then
             error "Timed out after ${max_wait}s — model did not finish loading."
@@ -227,7 +236,6 @@ load_model() {
     done
 }
 
-# keep old name as alias so test functions can call it
 warmup_model() { load_model "$1"; }
 
 # ── Test: quick ───────────────────────────────────────────────────────────────
