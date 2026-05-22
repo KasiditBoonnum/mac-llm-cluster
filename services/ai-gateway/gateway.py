@@ -134,8 +134,13 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
     )
     if resp.status_code == 200:
         data = resp.json()
-        used_model = data.get("model", "unknown")
-        logging.info(f"[model_used] {used_model}")
+        actual_model = (
+            resp.headers.get("x-litellm-model-id")
+            or resp.headers.get("x-litellm-model-api-base")
+            or data.get("model", "unknown")
+        )
+        data["model"] = actual_model
+        logging.info(f"[model_used] {actual_model}")
         return data
     raise HTTPException(status_code=resp.status_code, detail="Inference failed")
 
