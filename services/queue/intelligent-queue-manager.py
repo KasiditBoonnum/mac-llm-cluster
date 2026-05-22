@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Intelligent Queue Manager with Model Switching"""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import requests
 import asyncio
@@ -43,9 +43,14 @@ class State:
 state = State()
 
 
-class InferenceRequest(BaseModel):
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
     model: str
-    prompt: str
+    messages: list[ChatMessage]
     stream: bool = False
 
 
@@ -179,6 +184,7 @@ async def process_queue():
 async def process_task(task):
     task_id = task['task_id']
     request = task['request']
+    done_event = task.get('done_event')
     state.active_tasks[task_id] = {
         "status": "running",
         "model": request.model,
@@ -203,17 +209,40 @@ async def process_task(task):
         state.active_tasks[task_id]["status"] = "error"
         state.active_tasks[task_id]["error"] = str(e)
         state.active_tasks[task_id]["completed_at"] = datetime.now().isoformat()
+    finally:
+        if done_event:
+            done_event.set()
+
+
+def _to_openai_response(result: dict, model: str) -> dict:
+    """Normalize Ollama /api/chat or Exo response to OpenAI format."""
+    # Exo already returns OpenAI format
+    if "choices" in result:
+        return result
+    # Ollama /api/chat returns {"message": {"role": ..., "content": ...}, "eval_count": N, ...}
+    content = result.get("message", {}).get("content", "")
+    if isinstance(content, str):
+        content = content.translate(_CTRL_STRIP)
+    completion_tokens = result.get("eval_count", 0)
+    prompt_tokens = result.get("prompt_eval_count", 0)
+    return {
+        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": model,
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "total_tokens": prompt_tokens + completion_tokens},
+    }
 
 
 async def run_ollama(task_id, request, node_url):
     start = time.time()
-    response = requests.post(f"{node_url}/api/generate",
-        json={"model": request.model, "prompt": request.prompt, "stream": False},
+    messages = [{"role": m.role, "content": m.content} for m in request.messages]
+    response = requests.post(f"{node_url}/api/chat",
+        json={"model": request.model, "messages": messages, "stream": False},
         timeout=300)
     if response.status_code == 200:
         data = response.json()
-        if isinstance(data.get("response"), str):
-            data["response"] = data["response"].translate(_CTRL_STRIP)
         elapsed = time.time() - start
         tokens = data.get("eval_count", 0)
         tok_s = tokens / elapsed if elapsed > 0 else 0
@@ -226,10 +255,9 @@ async def run_ollama(task_id, request, node_url):
 async def run_exo(task_id, request):
     state.exo_last_use = datetime.now()
     start = time.time()
+    messages = [{"role": m.role, "content": m.content} for m in request.messages]
     response = requests.post(f"{EXO_ENDPOINT}/v1/chat/completions",
-        json={"model": request.model,
-              "messages": [{"role": "user", "content": request.prompt}],
-              "stream": False},
+        json={"model": request.model, "messages": messages, "stream": False},
         timeout=600)
     if response.status_code == 200:
         data = response.json()
@@ -248,10 +276,20 @@ async def startup():
 
 
 @app.post("/v1/chat/completions")
-async def queue_inference(request: InferenceRequest):
+async def chat_completions(request: ChatRequest):
     task_id = str(uuid.uuid4())
-    state.queue.append({"task_id": task_id, "request": request, "queued_at": datetime.now().isoformat()})
-    return {"task_id": task_id, "status": "queued", "position": len(state.queue)}
+    done_event = asyncio.Event()
+    state.queue.append({
+        "task_id": task_id,
+        "request": request,
+        "queued_at": datetime.now().isoformat(),
+        "done_event": done_event,
+    })
+    await done_event.wait()
+    task = state.active_tasks.get(task_id, {})
+    if task.get("status") == "error":
+        raise HTTPException(status_code=500, detail=task.get("error", "inference failed"))
+    return _to_openai_response(task["result"], request.model)
 
 
 @app.get("/tasks/{task_id}")
