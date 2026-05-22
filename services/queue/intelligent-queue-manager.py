@@ -19,9 +19,9 @@ _CTRL_STRIP = dict.fromkeys(
 app = FastAPI()
 
 OLLAMA_NODES = {
-    "phi4":  "http://llm-01.local:11434",   # phi4:latest
-    "qwen":  "http://llm-02.local:11434",   # qwen2.5:32b-instruct-q4_K_M
-    "node3": "http://llm-03.local:11434",   # qwen2.5:32b-instruct-q4_K_M / deepseek-coder:33b-instruct-q4_K_M (switches)
+    "phi4":  "http://127.0.0.1:11434",   # phi4:latest (llm-01 local)
+    "qwen":  "http://127.0.0.1:11435",   # qwen2.5:32b (llm-02 via SSH tunnel)
+    "node3": "http://127.0.0.1:11436",   # qwen2.5/deepseek (llm-03 via SSH tunnel)
 }
 
 EXO_ENDPOINT = "http://llm-01.local:5678"
