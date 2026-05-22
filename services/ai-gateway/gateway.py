@@ -112,7 +112,7 @@ def scrub_messages(messages: list) -> list:
 
 
 class ChatRequest(BaseModel):
-    model: str = "auto"
+    model: str = "phi4:latest"
     messages: list
     stream: bool = False
     use_rag: bool = True

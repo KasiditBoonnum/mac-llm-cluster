@@ -23,24 +23,11 @@ model_list:
       api_base: http://localhost:8080/v1
       api_key: none
 
-  # Auto-routing group: LiteLLM picks the least-busy model
-  - model_name: auto
-    litellm_params:
-      model: openai/phi4:latest
-      api_base: http://localhost:8080/v1
-      api_key: none
-
-  - model_name: auto
-    litellm_params:
-      model: openai/qwen2.5:32b-instruct-q4_K_M
-      api_base: http://localhost:8080/v1
-      api_key: none
-
 router_settings:
-  routing_strategy: least-busy
+  routing_strategy: latency-based-routing
   timeout: 120
   retry_after: 0
 
-
 general_settings:
   master_key: sk-llm-cluster
+  default_model: phi4:latest

@@ -20,6 +20,8 @@
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
         <key>LITELLM_MASTER_KEY</key>
         <string>sk-llm-cluster</string>
+        <key>DATABASE_URL</key>
+        <string>postgresql://llm-01@localhost:5432/litellm</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>
