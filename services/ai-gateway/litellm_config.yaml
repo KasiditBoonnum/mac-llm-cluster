@@ -39,5 +39,9 @@ model_list:
 router_settings:
   routing_strategy: least-busy
 
+litellm_settings:
+  callbacks:
+    - presidio_callback.PresidioCallback
+
 general_settings:
   master_key: sk-llm-cluster
