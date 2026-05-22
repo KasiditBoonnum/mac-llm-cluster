@@ -13,6 +13,28 @@ function App() {
 
   const [messages, setMessages] = useState<Message[]>(mockMessages0);
 
+  // Send a message to backend and append response
+  const handleSend = async (text: string) => {
+    const userMsg: Message = { id: Date.now(), text, sender: "user" };
+    setMessages((m) => [...m, userMsg]);
+
+    try {
+      const resp = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "qwen2.5", messages: [{ role: "user", content: text }] }),
+      });
+      const data = await resp.json();
+      // attempt to read assistant content (OpenAI-like)
+      const botText = data?.choices?.[0]?.message?.content || JSON.stringify(data);
+      const botMsg: Message = { id: Date.now() + 1, text: botText, sender: "bot" };
+      setMessages((m) => [...m, botMsg]);
+    } catch (err) {
+      const errMsg: Message = { id: Date.now() + 2, text: "Error: " + String(err), sender: "bot" };
+      setMessages((m) => [...m, errMsg]);
+    }
+  };
+
   // Handler passed to Sidebar so its controls can set which mock messages are shown
   const handleSelectMessages = (which: 0 | 1 | 2 | 3) => {
     if (which === 0) return setMessages(mockMessages0);
@@ -40,7 +62,7 @@ function App() {
 
         {/* ช่องกรอกข้อความ - ล็อกให้อยู่ล่างสุดเสมอ */}
         <div className="flex-none">
-          <ChatInput />
+          <ChatInput onSend={handleSend} />
         </div>
       </div>
     </div>

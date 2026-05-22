@@ -2,7 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import UploadMenu from "../popup/UploadMenu";
 import ModelSelector from "../popup/ModelSelector";
 
-export default function ChatInput() {
+type Props = {
+  onSend?: (text: string) => void;
+};
+
+export default function ChatInput({ onSend }: Props) {
 
   const [showUpload, setShowUpload] = useState(false);
   const [showModel, setShowModel] = useState(false);
@@ -178,6 +182,16 @@ export default function ChatInput() {
               text-white
               cursor-pointer
             "
+            onClick={() => {
+              const textarea = textareaRef.current;
+              if (!textarea) return;
+              const text = textarea.value.trim();
+              if (!text) return;
+              // call parent handler if provided
+              if (onSend) onSend(text);
+              textarea.value = "";
+              textarea.style.height = "auto";
+            }}
           >
             ส่ง
           </button>

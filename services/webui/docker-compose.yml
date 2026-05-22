@@ -9,6 +9,16 @@ services:
       - "3000:80"
     environment:
       - NODE_ENV=production
+  backend:
+    build:
+      context: ./
+      dockerfile: ./backend/Dockerfile
+    image: mac-llm-cluster-webui-backend:latest
+    restart: unless-stopped
+    environment:
+      - LITELLM_URL=http://llm-01.local:11434
+    ports:
+      - "8000:8000"
 
 volumes:
   webui_data: {}
