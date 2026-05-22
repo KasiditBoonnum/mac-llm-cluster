@@ -18,8 +18,6 @@
     <dict>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
-        <key>DATABASE_URL</key>
-        <string>sqlite:////Users/llm-01/mac-llm-cluster/services/ai-gateway/litellm.db</string>
         <key>LITELLM_MASTER_KEY</key>
         <string>sk-llm-cluster</string>
     </dict>
