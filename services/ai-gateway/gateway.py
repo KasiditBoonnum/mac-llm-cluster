@@ -134,13 +134,19 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
     )
     if resp.status_code == 200:
         data = resp.json()
-        actual_model = (
-            resp.headers.get("x-litellm-model-id")
-            or resp.headers.get("x-litellm-model-api-base")
-            or data.get("model", "unknown")
+        api_base = resp.headers.get("x-litellm-model-api-base", "")
+        api_base_to_model = {
+            "192.168.10.11:11434": "phi4:latest",
+            "127.0.0.1:11435":    "qwen2.5:32b (llm-02)",
+            "127.0.0.1:11436":    "qwen2.5:32b (llm-03)",
+            "127.0.0.1:11437":    "deepseek-coder:33b (llm-03)",
+        }
+        actual_model = next(
+            (name for key, name in api_base_to_model.items() if key in api_base),
+            data.get("model", "unknown")
         )
         data["model"] = actual_model
-        logging.info(f"[model_used] {actual_model}")
+        logging.info(f"[model_used] {actual_model} (api_base={api_base})")
         return data
     raise HTTPException(status_code=resp.status_code, detail="Inference failed")
 
