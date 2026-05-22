@@ -19,5 +19,24 @@ model_list:
       model: ollama/deepseek-coder:33b-instruct-q4_K_M
       api_base: http://127.0.0.1:11437
 
+  # Auto-routing group: LiteLLM picks the least-busy node
+  - model_name: auto
+    litellm_params:
+      model: ollama/phi4:latest
+      api_base: http://192.168.10.11:11434
+
+  - model_name: auto
+    litellm_params:
+      model: ollama/qwen2.5:32b-instruct-q4_K_M
+      api_base: http://127.0.0.1:11435
+
+  - model_name: auto
+    litellm_params:
+      model: ollama/qwen2.5:32b-instruct-q4_K_M
+      api_base: http://127.0.0.1:11436
+
+router_settings:
+  routing_strategy: least-busy
+
 general_settings:
   master_key: sk-llm-cluster
