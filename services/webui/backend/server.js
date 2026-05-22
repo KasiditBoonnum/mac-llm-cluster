@@ -1,11 +1,9 @@
 import express from "express";
-import fetch from "node-fetch";
-import bodyParser from "body-parser";
 
 const app = express();
 const port = process.env.PORT || 8000;
 
-app.use(bodyParser.json());
+app.use(express.json());
 
 const LITELLM_URL = process.env.LITELLM_URL || process.env.OLLAMA_BASE_URLS || "http://localhost:11434";
 const AUTH_HEADER = process.env.LITELLM_AUTH || "";
@@ -20,6 +18,7 @@ app.post("/api/chat", async (req, res) => {
     const headers = { "Content-Type": "application/json" };
     if (AUTH_HEADER) headers["Authorization"] = AUTH_HEADER;
 
+    // Use global fetch (Node 18+ provides fetch). No external dependency required.
     const r = await fetch(target, {
       method: "POST",
       headers,
