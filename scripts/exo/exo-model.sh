@@ -170,18 +170,45 @@ pick_test_interactive() {
     done
 }
 
-# ── Warmup ────────────────────────────────────────────────────────────────────
-warmup_model() {
+# ── Load model via place_instance API ─────────────────────────────────────────
+load_model() {
     local model="$1"
     local max_wait=300
-    local interval=5
+    local interval=3
     local elapsed=0
 
-    info "Loading model — sending first request (may take 1-2 min to shard across nodes)..."
+    info "Checking if model is already loaded..."
+    local resp
+    resp=$(curl -s --max-time 10 "$BASE_URL/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}" \
+        2>/dev/null || true)
+
+    if echo "$resp" | grep -q '"content"'; then
+        success "Model already loaded — ready"
+        return
+    fi
+
+    info "Placing model instance across cluster nodes..."
+    local place_resp
+    place_resp=$(curl -s --max-time 30 -X POST "$BASE_URL/place_instance" \
+        -H "Content-Type: application/json" \
+        -d "{\"model_id\":\"$model\",\"sharding\":\"Pipeline\",\"instance_meta\":\"MlxRing\",\"min_nodes\":1}" \
+        2>/dev/null || true)
+
+    if echo "$place_resp" | grep -q '"detail"'; then
+        error "place_instance failed: $(echo "$place_resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("detail","unknown"))' 2>/dev/null)"
+        exit 1
+    fi
+
+    info "Instance placement requested — waiting for model to load (up to ${max_wait}s)..."
+    echo ""
 
     while true; do
-        local resp
-        resp=$(curl -s --max-time 30 "$BASE_URL/v1/chat/completions" \
+        sleep $interval
+        elapsed=$((elapsed + interval))
+
+        resp=$(curl -s --max-time 10 "$BASE_URL/v1/chat/completions" \
             -H "Content-Type: application/json" \
             -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}" \
             2>/dev/null || true)
@@ -191,24 +218,17 @@ warmup_model() {
             return
         fi
 
-        local reason
-        reason=$(echo "$resp" | python3 -c \
-            'import sys,json; d=json.load(sys.stdin); print(d.get("detail") or d.get("error",{}).get("message","not ready"))' \
-            2>/dev/null || echo "no response")
-
-        elapsed=$((elapsed + interval))
-        info "[${elapsed}s] ${reason}"
+        info "[${elapsed}s] loading shards across nodes..."
 
         if (( elapsed >= max_wait )); then
-            error "Timed out after ${max_wait}s — model did not load."
-            echo "  Check exo is running: bash $SCRIPT_DIR/restart-exo.sh"
-            echo "  Or open http://localhost:5678 and click Launch."
+            error "Timed out after ${max_wait}s — model did not finish loading."
             exit 1
         fi
-
-        sleep $interval
     done
 }
+
+# keep old name as alias so test functions can call it
+warmup_model() { load_model "$1"; }
 
 # ── Test: quick ───────────────────────────────────────────────────────────────
 run_quick_test() {
