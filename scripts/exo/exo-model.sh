@@ -238,7 +238,7 @@ run_quick_test() {
     info "Sending short inference request (max $max_tok tokens)..."
 
     local resp
-    resp=$(curl -sf "$BASE_URL/v1/chat/completions" \
+    resp=$(curl -s --max-time 60 "$BASE_URL/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -d "{
             \"model\": \"$model\",
@@ -249,7 +249,18 @@ run_quick_test() {
     echo ""
     echo "$resp" | python3 -c "
 import sys, json
-d = json.load(sys.stdin)
+raw = sys.stdin.read().strip()
+if not raw:
+    print('ERROR: empty response from API')
+    sys.exit(1)
+try:
+    d = json.loads(raw)
+except json.JSONDecodeError:
+    print('ERROR: non-JSON response:', raw[:200])
+    sys.exit(1)
+if 'error' in d or 'detail' in d:
+    print('ERROR:', d.get('detail') or d.get('error', {}).get('message', raw[:200]))
+    sys.exit(1)
 msg = d['choices'][0]['message']
 content = msg.get('content') or msg.get('reasoning_content', '(thinking...)')
 usage = d.get('usage', {})
