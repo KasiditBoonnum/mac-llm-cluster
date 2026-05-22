@@ -123,22 +123,29 @@ class ChatRequest(BaseModel):
 
 @app.post("/v1/chat/completions")
 async def chat(req: ChatRequest, key: str = Depends(verify_key)):
-    logging.info(f"[1] Request received  model={req.model} rag={req.use_rag} pii={req.scrub_pii}")
+    _logs = []
+
+    def log(msg):
+        logging.info(msg)
+        if req.show_log:
+            _logs.append(msg)
+
+    log(f"[1] Request received  model={req.model} rag={req.use_rag} pii={req.scrub_pii}")
     messages = req.messages
 
     if req.use_rag and RAG_AVAILABLE:
         messages = inject_rag(messages)
-        logging.info(f"[2] RAG injected      context added from Qdrant")
+        log(f"[2] RAG injected      context added from Qdrant")
     else:
-        logging.info(f"[2] RAG skipped")
+        log(f"[2] RAG skipped")
 
     if req.scrub_pii and PII_AVAILABLE:
         messages = scrub_messages(messages)
-        logging.info(f"[3] PII scrubbed      Presidio applied")
+        log(f"[3] PII scrubbed      Presidio applied")
     else:
-        logging.info(f"[3] PII skipped")
+        log(f"[3] PII skipped")
 
-    logging.info(f"[4] Forwarding        → LiteLLM :8083 model={req.model}")
+    log(f"[4] Forwarding        → LiteLLM :8083 model={req.model}")
     t0 = time.time()
     resp = requests.post(
         f"{QUEUE_URL}/v1/chat/completions",
@@ -154,7 +161,7 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
         compl_tok   = usage.get("completion_tokens", 0)
         total_tok   = usage.get("total_tokens", 0)
         tok_s = compl_tok / elapsed if elapsed > 0 else 0
-        logging.info(
+        log(
             f"[5] Done  model={req.model}  "
             f"prompt={prompt_tok}  completion={compl_tok}  total={total_tok}  "
             f"time={elapsed:.1f}s  speed={tok_s:.1f} tok/s"
@@ -167,6 +174,7 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
                 "total_tokens": total_tok,
                 "time_s": round(elapsed, 1),
                 "tok_s": round(tok_s, 1),
+                "logs": _logs,
             }
         return data
     raise HTTPException(status_code=resp.status_code, detail="Inference failed")

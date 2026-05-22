@@ -3,13 +3,15 @@
 import sys, json
 
 data = json.loads(sys.stdin.read(), strict=False)
-print(data["choices"][0]["message"]["content"])
 s = data.get("_stats")
+
+if s and s.get("logs"):
+    for line in s["logs"]:
+        print(line)
+    print(f"{'─'*50}")
+
+print(data["choices"][0]["message"]["content"])
+
 if s:
-    print(f"\n{'─'*50}")
-    print(f"model      : {s['model']}")
-    print(f"prompt     : {s['prompt_tokens']} tok")
-    print(f"completion : {s['completion_tokens']} tok")
-    print(f"total      : {s['total_tokens']} tok")
-    print(f"time       : {s['time_s']}s")
-    print(f"speed      : {s['tok_s']} tok/s")
+    print(f"{'─'*50}")
+    print(f"prompt={s['prompt_tokens']} tok  completion={s['completion_tokens']} tok  total={s['total_tokens']} tok  time={s['time_s']}s  speed={s['tok_s']} tok/s")
