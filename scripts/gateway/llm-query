@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+"""Usage: llm-query "question" [model]"""
+import subprocess, sys, json, pathlib
+
+question = sys.argv[1] if len(sys.argv) > 1 else ""
+model    = sys.argv[2] if len(sys.argv) > 2 else "qwen2.5:32b-instruct-q4_K_M"
+
+payload = json.dumps({
+    "model": model,
+    "messages": [{"role": "user", "content": question}],
+    "use_rag": True,
+    "scrub_pii": True,
+    "show_log": True,
+})
+
+result = subprocess.run(
+    ["curl", "-s", "http://llm-01.local:8082/v1/chat/completions",
+     "-H", "Authorization: Bearer x",
+     "-H", "Content-Type: application/json",
+     "-d", payload],
+    capture_output=True, text=True
+)
+
+parse = pathlib.Path(__file__).parent / "llm-parse.py"
+subprocess.run(["python3", str(parse)], input=result.stdout, text=True)
