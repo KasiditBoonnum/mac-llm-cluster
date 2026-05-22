@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-OLLAMA_URL = "http://llm-01.local:11434"
-MODEL = "phi4:14b-q5_K_M"
+GATEWAY_URL = "http://localhost:8082"
+MODEL = "phi4:latest"
 LOG_FILES = ["/var/log/nginx/error.log", "/tmp/queue-manager.err"]
 OUTPUT_DIR = Path.home() / "mac-llm-cluster/logs/analysis"
 CHECK_INTERVAL = 3600  # 1 hour
@@ -20,12 +20,16 @@ def analyze_log(log_path: str) -> str:
         recent = '\n'.join(content.splitlines()[-50:])
         if not recent.strip():
             return ""
-        resp = requests.post(f"{OLLAMA_URL}/api/generate",
+        resp = requests.post(f"{GATEWAY_URL}/v1/chat/completions",
             json={"model": MODEL,
-                  "prompt": f"Summarize errors/warnings from these logs in 3 bullets:\n{recent}",
-                  "stream": False},
-            timeout=60)
-        return resp.json().get("response", "") if resp.status_code == 200 else ""
+                  "messages": [{"role": "user", "content": f"Summarize errors/warnings from these logs in 3 bullets:\n{recent}"}],
+                  "use_rag": False,
+                  "scrub_pii": False},
+            headers={"Authorization": "Bearer sk-llm-cluster"},
+            timeout=120)
+        if resp.status_code == 200:
+            return resp.json()["choices"][0]["message"]["content"]
+        return ""
     except Exception as e:
         return f"Error analyzing {log_path}: {e}"
 
