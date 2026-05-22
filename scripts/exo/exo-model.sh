@@ -173,27 +173,41 @@ pick_test_interactive() {
 # ── Warmup ────────────────────────────────────────────────────────────────────
 warmup_model() {
     local model="$1"
-    info "Checking model is loaded..."
-    local resp
-    resp=$(curl -sf "$BASE_URL/v1/chat/completions" \
-        -H "Content-Type: application/json" \
-        -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}" \
-        2>/dev/null || true)
+    local max_wait=300
+    local interval=5
+    local elapsed=0
 
-    if echo "$resp" | grep -q '"content"'; then
-        success "Model ready"
-    else
-        info "Warming up model (first load may take a moment)..."
-        resp=$(curl -sf "$BASE_URL/v1/chat/completions" \
+    info "Loading model — sending first request (may take 1-2 min to shard across nodes)..."
+
+    while true; do
+        local resp
+        resp=$(curl -s --max-time 30 "$BASE_URL/v1/chat/completions" \
             -H "Content-Type: application/json" \
-            -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in one word.\"}],\"max_tokens\":10}" \
+            -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}" \
             2>/dev/null || true)
+
         if echo "$resp" | grep -q '"content"'; then
-            success "Model warmed up"
-        else
-            warn "Warmup response unexpected — proceeding anyway"
+            success "Model loaded and ready (${elapsed}s)"
+            return
         fi
-    fi
+
+        local reason
+        reason=$(echo "$resp" | python3 -c \
+            'import sys,json; d=json.load(sys.stdin); print(d.get("detail") or d.get("error",{}).get("message","not ready"))' \
+            2>/dev/null || echo "no response")
+
+        elapsed=$((elapsed + interval))
+        info "[${elapsed}s] ${reason}"
+
+        if (( elapsed >= max_wait )); then
+            error "Timed out after ${max_wait}s — model did not load."
+            echo "  Check exo is running: bash $SCRIPT_DIR/restart-exo.sh"
+            echo "  Or open http://localhost:5678 and click Launch."
+            exit 1
+        fi
+
+        sleep $interval
+    done
 }
 
 # ── Test: quick ───────────────────────────────────────────────────────────────
