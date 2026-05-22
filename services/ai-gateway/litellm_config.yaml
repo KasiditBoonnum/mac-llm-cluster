@@ -1,39 +1,40 @@
 model_list:
   - model_name: phi4:latest
     litellm_params:
-      model: ollama/phi4:latest
-      api_base: http://192.168.10.11:11434
+      model: openai/phi4:latest
+      api_base: http://localhost:8080/v1
+      api_key: none
 
   - model_name: qwen2.5:32b-instruct-q4_K_M
     litellm_params:
-      model: ollama/qwen2.5:32b-instruct-q4_K_M
-      api_base: http://127.0.0.1:11435
-
-  - model_name: qwen2.5:32b-instruct-q4_K_M
-    litellm_params:
-      model: ollama/qwen2.5:32b-instruct-q4_K_M
-      api_base: http://127.0.0.1:11436
+      model: openai/qwen2.5:32b-instruct-q4_K_M
+      api_base: http://localhost:8080/v1
+      api_key: none
 
   - model_name: deepseek-coder:33b-instruct-q4_K_M
     litellm_params:
-      model: ollama/deepseek-coder:33b-instruct-q4_K_M
-      api_base: http://127.0.0.1:11437
+      model: openai/deepseek-coder:33b-instruct-q4_K_M
+      api_base: http://localhost:8080/v1
+      api_key: none
 
-  # Auto-routing group: LiteLLM picks the least-busy node
+  - model_name: exo:Qwen3.6-35B-A3B-8bit
+    litellm_params:
+      model: openai/exo:Qwen3.6-35B-A3B-8bit
+      api_base: http://localhost:8080/v1
+      api_key: none
+
+  # Auto-routing group: LiteLLM picks the least-busy model
   - model_name: auto
     litellm_params:
-      model: ollama/phi4:latest
-      api_base: http://192.168.10.11:11434
+      model: openai/phi4:latest
+      api_base: http://localhost:8080/v1
+      api_key: none
 
   - model_name: auto
     litellm_params:
-      model: ollama/qwen2.5:32b-instruct-q4_K_M
-      api_base: http://127.0.0.1:11435
-
-  - model_name: auto
-    litellm_params:
-      model: ollama/qwen2.5:32b-instruct-q4_K_M
-      api_base: http://127.0.0.1:11436
+      model: openai/qwen2.5:32b-instruct-q4_K_M
+      api_base: http://localhost:8080/v1
+      api_key: none
 
 router_settings:
   routing_strategy: least-busy
