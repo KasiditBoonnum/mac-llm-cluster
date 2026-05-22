@@ -61,6 +61,7 @@ launchd จัดการ auto-start ให้อัตโนมัติ ย�
 ```bash
 ssh -N -f -L 11435:localhost:11434 llm-02
 ssh -N -f -L 11436:localhost:11434 llm-03
+ssh -N -f -L 11437:localhost:11435 llm-03
 ```
 
 > **หมายเหตุ:** SSH tunnel จำเป็นเพราะ macOS 15 (Sequoia) บล็อก Python (Homebrew)
