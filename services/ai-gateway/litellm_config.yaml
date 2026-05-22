@@ -23,6 +23,9 @@ model_list:
       api_base: http://localhost:8080/v1
       api_key: none
 
+litellm_settings:
+  set_verbose: true
+
 router_settings:
   routing_strategy: latency-based-routing
   timeout: 120

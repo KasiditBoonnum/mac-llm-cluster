@@ -121,11 +121,22 @@ class ChatRequest(BaseModel):
 
 @app.post("/v1/chat/completions")
 async def chat(req: ChatRequest, key: str = Depends(verify_key)):
+    logging.info(f"[1] Request received  model={req.model} rag={req.use_rag} pii={req.scrub_pii}")
     messages = req.messages
+
     if req.use_rag and RAG_AVAILABLE:
         messages = inject_rag(messages)
+        logging.info(f"[2] RAG injected      context added from Qdrant")
+    else:
+        logging.info(f"[2] RAG skipped")
+
     if req.scrub_pii and PII_AVAILABLE:
         messages = scrub_messages(messages)
+        logging.info(f"[3] PII scrubbed      Presidio applied")
+    else:
+        logging.info(f"[3] PII skipped")
+
+    logging.info(f"[4] Forwarding        → LiteLLM :8083 model={req.model}")
     resp = requests.post(
         f"{QUEUE_URL}/v1/chat/completions",
         json={"model": req.model, "messages": messages, "stream": req.stream},
@@ -146,7 +157,8 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
             data.get("model", "unknown")
         )
         data["model"] = actual_model
-        logging.info(f"[model_used] {actual_model} (api_base={api_base})")
+        tokens = data.get("usage", {}).get("completion_tokens", 0)
+        logging.info(f"[5] Done              model={actual_model} tokens={tokens}")
         return data
     raise HTTPException(status_code=resp.status_code, detail="Inference failed")
 
