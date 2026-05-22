@@ -6,7 +6,6 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import requests
 import logging
-import asyncio
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -112,30 +111,12 @@ def scrub_messages(messages: list) -> list:
     return scrubbed
 
 
-AVAILABLE_MODELS = [
-    "phi4:latest",
-    "qwen2.5:32b-instruct-q4_K_M",
-]
-
-
 class ChatRequest(BaseModel):
-    model: str = "fastest"
+    model: str = "phi4:latest"
     messages: list
     stream: bool = False
     use_rag: bool = True
     scrub_pii: bool = True
-
-
-def _call_model(model: str, messages: list, stream: bool) -> dict:
-    resp = requests.post(
-        f"{QUEUE_URL}/v1/chat/completions",
-        json={"model": model, "messages": messages, "stream": stream},
-        headers={"Authorization": "Bearer sk-llm-cluster"},
-        timeout=600,
-    )
-    if resp.status_code == 200:
-        return resp.json()
-    raise Exception(f"{model} failed: {resp.status_code}")
 
 
 @app.post("/v1/chat/completions")
@@ -155,32 +136,19 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
     else:
         logging.info(f"[3] PII skipped")
 
-    # Race mode: ส่งทุก model พร้อมกัน เอาตัวที่ตอบก่อน
-    if req.model == "fastest":
-        logging.info(f"[4] Racing            → ส่งไป {len(AVAILABLE_MODELS)} models พร้อมกัน")
-        loop = asyncio.get_event_loop()
-        futures = {
-            loop.run_in_executor(None, _call_model, m, messages, req.stream): m
-            for m in AVAILABLE_MODELS
-        }
-        done, pending = await asyncio.wait(futures.keys(), return_when=asyncio.FIRST_COMPLETED)
-        for f in pending:
-            f.cancel()
-        winner = done.pop()
-        data = winner.result()
-        winner_model = futures[winner]
-        data["model"] = winner_model
-        tokens = data.get("usage", {}).get("completion_tokens", 0)
-        logging.info(f"[5] Done              model={winner_model} tokens={tokens} (fastest)")
-        return data
-
-    # Direct mode: ระบุ model ตรงๆ
     logging.info(f"[4] Forwarding        → LiteLLM :8083 model={req.model}")
-    loop = asyncio.get_event_loop()
-    data = await loop.run_in_executor(None, _call_model, req.model, messages, req.stream)
-    tokens = data.get("usage", {}).get("completion_tokens", 0)
-    logging.info(f"[5] Done              model={req.model} tokens={tokens}")
-    return data
+    resp = requests.post(
+        f"{QUEUE_URL}/v1/chat/completions",
+        json={"model": req.model, "messages": messages, "stream": req.stream},
+        headers={"Authorization": "Bearer sk-llm-cluster"},
+        timeout=600,
+    )
+    if resp.status_code == 200:
+        data = resp.json()
+        tokens = data.get("usage", {}).get("completion_tokens", 0)
+        logging.info(f"[5] Done              model={req.model} tokens={tokens}")
+        return data
+    raise HTTPException(status_code=resp.status_code, detail="Inference failed")
 
 
 @app.get("/v1/models")
