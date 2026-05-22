@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+build/
+
+# logs
+logs
+*.log
+npm-debug.log*
+
+# environment variables
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# vscode
+.vscode/
+
+# vite
+.vite/
+
+# cache
+.cache/
+
+# typescript
+*.tsbuildinfo
