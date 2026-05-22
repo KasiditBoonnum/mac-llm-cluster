@@ -5,7 +5,10 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import requests
+import logging
 from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
 try:
     from qdrant_client import QdrantClient
@@ -130,7 +133,10 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
         timeout=600,
     )
     if resp.status_code == 200:
-        return resp.json()
+        data = resp.json()
+        used_model = data.get("model", "unknown")
+        logging.info(f"[model_used] {used_model}")
+        return data
     raise HTTPException(status_code=resp.status_code, detail="Inference failed")
 
 
