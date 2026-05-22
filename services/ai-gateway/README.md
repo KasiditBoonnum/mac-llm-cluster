@@ -7,9 +7,11 @@ OpenAI-compatible API gateway with RAG, PII scrubbing, and load balancing via Li
 ```
 Client
   ↓
-gateway.py :8082       ← RAG injection + PII scrubbing
+gateway.py :8082       ← RAG injection + PII scrubbing (Presidio)
   ↓
-LiteLLM proxy :8083    ← Load balancing
+LiteLLM proxy :8083    ← Load balancing + auto model selection
+  ↓
+queue_manager :8080    ← Intelligent routing (Exo, node switching, idle timeout)
   ↓          ↓          ↓
 llm-01      llm-02     llm-03
 phi4        qwen2.5    qwen2.5
@@ -20,6 +22,8 @@ phi4        qwen2.5    qwen2.5
 
 ### PII Scrubbing (Presidio)
 ตรวจหาและแทนที่ข้อมูลส่วนตัวก่อนส่งไป LLM โดยใช้ Microsoft Presidio + spaCy
+
+PII scrubbing เกิดขึ้นที่ **gateway.py** ก่อน request จะถึง LiteLLM หรือ LLM nodes — ทุก request ที่ผ่าน gateway จะถูก enforce โดยอัตโนมัติ
 
 | Entity | ตัวอย่าง | ผลลัพธ์ |
 |---|---|---|
@@ -32,8 +36,14 @@ phi4        qwen2.5    qwen2.5
 ### RAG (Retrieval-Augmented Generation)
 ดึง context จาก Qdrant vector database และ inject เป็น system message
 
-### Load Balancing (LiteLLM)
-กระจาย request ระหว่าง llm-02 และ llm-03 อัตโนมัติ พร้อม fallback
+### Load Balancing + Auto Model Selection (LiteLLM)
+กระจาย request ระหว่าง nodes อัตโนมัติด้วย `least-busy` routing — ไม่ต้องระบุ model ก็ได้ ใช้ `"model": "auto"` แล้ว LiteLLM จะเลือก node ที่ว่างที่สุดให้
+
+### Intelligent Routing (Queue Manager)
+queue_manager :8080 จัดการ:
+- **Exo switching** — โหลด/ปิด distributed inference อัตโนมัติ
+- **Node 3 model switching** — สลับระหว่าง Qwen ↔ DeepSeek ตาม request
+- **Idle timeout** — คืน VRAM เมื่อไม่ใช้งาน
 
 ## Installation
 
@@ -116,8 +126,11 @@ curl -X POST http://llm-01.local:8082/v1/chat/completions \
 ### Available Models
 | Model | Node |
 |---|---|
+| `auto` | LiteLLM เลือก node ที่ว่างที่สุด |
 | `phi4:latest` | llm-01 |
 | `qwen2.5:32b-instruct-q4_K_M` | llm-02, llm-03 (load balanced) |
+| `deepseek-coder:33b-instruct-q4_K_M` | llm-03 |
+| `exo:Qwen3.6-35B-A3B-8bit` | llm-01, llm-02, llm-03 (distributed) |
 
 ## Logs
 
@@ -132,8 +145,9 @@ tail -f /tmp/queue-manager.log   # Queue logs
 
 ```
 services/ai-gateway/
-├── gateway.py              # Main gateway (RAG + PII + routing)
-├── litellm_config.yaml     # LiteLLM model routing config
+├── gateway.py              # Main gateway (RAG + PII scrubbing)
+├── litellm_config.yaml     # LiteLLM routing config (ชี้หา queue_manager :8080)
+├── presidio_callback.py    # Presidio callback class (reserved for future use)
 ├── requirements.txt        # Python dependencies
 └── api_key.txt             # API keys (optional, ถ้าไม่มีจะ allow ทุก key)
 
