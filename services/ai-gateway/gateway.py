@@ -115,8 +115,6 @@ def scrub_messages(messages: list) -> list:
 AVAILABLE_MODELS = [
     "phi4:latest",
     "qwen2.5:32b-instruct-q4_K_M",
-    "deepseek-coder:33b-instruct-q4_K_M",
-    "exo:Qwen3.6-35B-A3B-8bit",
 ]
 
 
