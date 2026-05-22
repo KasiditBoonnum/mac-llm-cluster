@@ -1,4 +1,4 @@
-import DeepSeekIcon from "../../assets/deepseekIcon.png";
+import DeepSeekIcon from "../../assets/deepSeekIcon.png";
 import Phi4Icon from "../../assets/phiIcon.png";
 import QwenIcon from "../../assets/qwenIcon.png";
 
