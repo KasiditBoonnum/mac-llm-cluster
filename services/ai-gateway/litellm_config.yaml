@@ -14,9 +14,9 @@ model_list:
       model: ollama/qwen2.5:32b-instruct-q4_K_M
       api_base: http://127.0.0.1:11436
 
-  - model_name: deepseek-coder-v2:33b-instruct-q4_K_M
+  - model_name: deepseek-coder:33b-instruct-q4_K_M
     litellm_params:
-      model: ollama/deepseek-coder-v2:33b-instruct-q4_K_M
+      model: ollama/deepseek-coder:33b-instruct-q4_K_M
       api_base: http://127.0.0.1:11437
 
 general_settings:
