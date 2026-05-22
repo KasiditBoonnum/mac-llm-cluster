@@ -6,6 +6,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import requests
 import logging
+import time
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -137,16 +138,26 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
         logging.info(f"[3] PII skipped")
 
     logging.info(f"[4] Forwarding        → LiteLLM :8083 model={req.model}")
+    t0 = time.time()
     resp = requests.post(
         f"{QUEUE_URL}/v1/chat/completions",
         json={"model": req.model, "messages": messages, "stream": req.stream},
         headers={"Authorization": "Bearer sk-llm-cluster"},
         timeout=600,
     )
+    elapsed = time.time() - t0
     if resp.status_code == 200:
         data = resp.json()
-        tokens = data.get("usage", {}).get("completion_tokens", 0)
-        logging.info(f"[5] Done              model={req.model} tokens={tokens}")
+        usage = data.get("usage", {})
+        prompt_tok  = usage.get("prompt_tokens", 0)
+        compl_tok   = usage.get("completion_tokens", 0)
+        total_tok   = usage.get("total_tokens", 0)
+        tok_s = compl_tok / elapsed if elapsed > 0 else 0
+        logging.info(
+            f"[5] Done  model={req.model}  "
+            f"prompt={prompt_tok}  completion={compl_tok}  total={total_tok}  "
+            f"time={elapsed:.1f}s  speed={tok_s:.1f} tok/s"
+        )
         return data
     raise HTTPException(status_code=resp.status_code, detail="Inference failed")
 
