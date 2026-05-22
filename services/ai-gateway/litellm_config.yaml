@@ -38,6 +38,8 @@ model_list:
 
 router_settings:
   routing_strategy: least-busy
+  timeout: 120
+  retry_after: 0
 
 
 general_settings:
