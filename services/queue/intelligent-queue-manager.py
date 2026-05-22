@@ -238,9 +238,11 @@ def _to_openai_response(result: dict, model: str) -> dict:
 async def run_ollama(task_id, request, node_url):
     start = time.time()
     messages = [{"role": m.role, "content": m.content} for m in request.messages]
-    response = requests.post(f"{node_url}/api/chat",
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(None, lambda: requests.post(
+        f"{node_url}/api/chat",
         json={"model": request.model, "messages": messages, "stream": False},
-        timeout=300)
+        timeout=300))
     if response.status_code == 200:
         data = response.json()
         elapsed = time.time() - start
@@ -256,9 +258,11 @@ async def run_exo(task_id, request):
     state.exo_last_use = datetime.now()
     start = time.time()
     messages = [{"role": m.role, "content": m.content} for m in request.messages]
-    response = requests.post(f"{EXO_ENDPOINT}/v1/chat/completions",
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(None, lambda: requests.post(
+        f"{EXO_ENDPOINT}/v1/chat/completions",
         json={"model": request.model, "messages": messages, "stream": False},
-        timeout=600)
+        timeout=600))
     if response.status_code == 200:
         data = response.json()
         elapsed = time.time() - start
