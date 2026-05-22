@@ -174,20 +174,21 @@ pick_test_interactive() {
 model_is_ready() {
     local model="$1"
     local resp
-    resp=$(curl -s --max-time 15 "$BASE_URL/v1/chat/completions" \
+    resp=$(curl -s --max-time 20 "$BASE_URL/v1/chat/completions" \
         -H "Content-Type: application/json" \
-        -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with one word: ready\"}],\"max_tokens\":10}" \
+        -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with one word: ready\"}],\"max_tokens\":50}" \
         2>/dev/null || true)
 
-    python3 -c "
+    echo "$resp" | python3 -c "
 import sys, json
 try:
-    d = json.loads('''$resp''' if False else sys.stdin.read())
-    content = (d.get('choices') or [{}])[0].get('message', {}).get('content') or ''
+    d = json.load(sys.stdin)
+    msg = (d.get('choices') or [{}])[0].get('message', {})
+    content = msg.get('content') or msg.get('reasoning_content') or ''
     sys.exit(0 if content.strip() else 1)
 except Exception:
     sys.exit(1)
-" <<< "$resp"
+"
 }
 
 # ── Load model via place_instance API ─────────────────────────────────────────
@@ -227,7 +228,18 @@ load_model() {
             return
         fi
 
-        info "[${elapsed}s] still loading..."
+        local status
+        status=$(curl -s --max-time 5 "$BASE_URL/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}" \
+            2>/dev/null | python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    print(d.get('detail') or d.get('error',{}).get('message') or 'waiting...')
+except: print('waiting...')
+" 2>/dev/null || echo "waiting...")
+        info "[${elapsed}s] $status"
 
         if (( elapsed >= max_wait )); then
             error "Timed out after ${max_wait}s — model did not finish loading."
