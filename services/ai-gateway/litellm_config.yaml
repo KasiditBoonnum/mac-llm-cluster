@@ -32,7 +32,7 @@ model_list:
     litellm_params:
       model: openai/mlx-community/Qwen3.6-35B-A3B-8bit
       api_base: http://localhost:5678
-      api_key: none
+      api_key: "none"
 
 litellm_settings:
   set_verbose: true
