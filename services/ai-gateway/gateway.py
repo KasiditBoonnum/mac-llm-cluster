@@ -36,8 +36,14 @@ RAG_THRESHOLD = 0.45
 app = FastAPI(title="LLM Cluster Gateway")
 security = HTTPBearer()
 
-QUEUE_URL = "http://localhost:8083"
+LITELLM_URL = "http://localhost:8083"        # ollama models via LiteLLM
+EXO_URL     = "http://llm-01.local:5678"    # exo cluster direct (managed by LaunchAgent)
+EXO_MODEL   = "mlx-community/Qwen3.6-35B-A3B-8bit"
 API_KEY_FILE = Path(__file__).parent / "api_key.txt"
+
+
+def is_exo_model(model: str) -> bool:
+    return "exo" in model.lower()
 
 
 def load_api_keys() -> set:
@@ -96,8 +102,14 @@ def inject_rag(messages: list) -> list:
 
 
 def scrub_pii(text: str, language: str = "en") -> str:
-    """Replace PII entities with <ENTITY_TYPE> placeholders."""
+    """Replace PII entities with <ENTITY_TYPE> placeholders, keeping IP addresses intact."""
+    import re
+    ip_spans = [(m.start(), m.end()) for m in re.finditer(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', text)]
     results = _analyzer.analyze(text=text, language=language)
+    results = [
+        r for r in results
+        if not any(r.start < ip_end and r.end > ip_start for ip_start, ip_end in ip_spans)
+    ]
     return _anonymizer.anonymize(text=text, analyzer_results=results).text
 
 
@@ -145,14 +157,20 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
     else:
         log(f"[3] PII skipped")
 
-    log(f"[4] Forwarding        → LiteLLM :8083 model={req.model}")
+    if is_exo_model(req.model):
+        target_url = EXO_URL
+        log(f"[4] Forwarding        → Exo :5678 model={EXO_MODEL}")
+        forward_kwargs = {"json": {"model": EXO_MODEL, "messages": messages, "stream": req.stream}, "timeout": 600}
+    else:
+        target_url = LITELLM_URL
+        log(f"[4] Forwarding        → LiteLLM :8083 model={req.model}")
+        forward_kwargs = {
+            "json": {"model": req.model, "messages": messages, "stream": req.stream},
+            "headers": {"Authorization": "Bearer sk-llm-cluster"},
+            "timeout": 600,
+        }
     t0 = time.time()
-    resp = requests.post(
-        f"{QUEUE_URL}/v1/chat/completions",
-        json={"model": req.model, "messages": messages, "stream": req.stream},
-        headers={"Authorization": "Bearer sk-llm-cluster"},
-        timeout=600,
-    )
+    resp = requests.post(f"{target_url}/v1/chat/completions", **forward_kwargs)
     elapsed = time.time() - t0
     if resp.status_code == 200:
         data = resp.json()

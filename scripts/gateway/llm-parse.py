@@ -11,6 +11,10 @@ if s and s.get("logs"):
         print("[5] Done" if line.startswith("[5]") else line)
     print(f"{'─'*50}")
 
+if "choices" not in data:
+    print(f"ERROR: {data.get('detail', data)}", file=sys.stderr)
+    sys.exit(1)
+
 print(data["choices"][0]["message"]["content"])
 
 if s:

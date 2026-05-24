@@ -1,26 +1,30 @@
 model_list:
+  # llm01 — phi4:latest (local)
   - model_name: phi4:latest
     litellm_params:
-      model: openai/phi4:latest
-      api_base: http://localhost:8080/v1
+      model: ollama/phi4:latest
+      api_base: http://localhost:11434
       api_key: none
 
+  # llm02 — qwen2.5:32b via SSH tunnel (localhost:11435 → llm02:11434)
   - model_name: qwen2.5:32b-instruct-q4_K_M
     litellm_params:
-      model: openai/qwen2.5:32b-instruct-q4_K_M
-      api_base: http://localhost:8080/v1
+      model: ollama/qwen2.5:32b-instruct-q4_K_M
+      api_base: http://localhost:11435
       api_key: none
 
+  # llm03 — qwen2.5:32b via SSH tunnel (localhost:11436 → llm03:11434)
+  - model_name: qwen2.5:32b-instruct-q4_K_M-node3
+    litellm_params:
+      model: ollama/qwen2.5:32b-instruct-q4_K_M
+      api_base: http://localhost:11436
+      api_key: none
+
+  # llm03 — deepseek-coder via SSH tunnel (localhost:11437 → llm03:11435)
   - model_name: deepseek-coder:33b-instruct-q4_K_M
     litellm_params:
-      model: openai/deepseek-coder:33b-instruct-q4_K_M
-      api_base: http://localhost:8080/v1
-      api_key: none
-
-  - model_name: exo:Qwen3.6-35B-A3B-8bit
-    litellm_params:
-      model: openai/exo:Qwen3.6-35B-A3B-8bit
-      api_base: http://localhost:8080/v1
+      model: ollama/deepseek-coder:33b-instruct-q4_K_M
+      api_base: http://localhost:11437
       api_key: none
 
 litellm_settings:
