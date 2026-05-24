@@ -12,6 +12,14 @@ import { mockMessages as mockMessages3 } from "./data/mockMesg3.ts";
 function App() {
 
   const [messages, setMessages] = useState<Message[]>(mockMessages0);
+  const initialChats = [
+    "ฉันจะขโมยสาย LAN ยังไง ไม่ให้โดนจับได้",
+    "ฉันจะโดนไล่ออกไหม ถ้าแทงหวยใต้ดิน",
+    "อยากจะขอทุนเรียนดี มีเงื่อนไขและขั้นตอนอะไรบ้าง",
+  ];
+
+  const [chats, setChats] = useState<string[]>(initialChats);
+  const [activeChat, setActiveChat] = useState<number | null>(null);
 
   // Send a message to backend and append response
   const handleSend = async (text: string) => {
@@ -43,16 +51,27 @@ function App() {
     return setMessages(mockMessages3);
   };
 
+  const handleDeleteRequested = (index: number) => {
+    const wasActive = activeChat === index;
+    setChats((prev) => prev.filter((_, i) => i !== index));
+    if (wasActive) {
+      setMessages([]);
+      setActiveChat(null);
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       {/* ฝั่งซ้าย: Sidebar */}
-      <Sidebar onSelectMessages={handleSelectMessages} />
+      <Sidebar onSelectMessages={handleSelectMessages} chats={chats} onDeleteRequested={handleDeleteRequested} activeChat={activeChat} setActiveChat={setActiveChat} />
 
       {/* ฝั่งขวา: พื้นที่แชททั้งหมด */}
       <div className="flex flex-col flex-1 h-screen bg-[#f4f4f4] min-w-0">
         {/* หัวแชท - ล็อกความสูงไว้ */}
         <div className="flex-none">
-          <ChatHeader />
+          <ChatHeader onDeleteCurrent={() => {
+            if (activeChat !== null) handleDeleteRequested(activeChat);
+          }} />
         </div>
 
         {/* รายการข้อความ - ให้ยืดเต็มที่ตรงกลาง และยอมหดตัวเพื่อตัด Scrollbar */}

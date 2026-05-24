@@ -1,4 +1,4 @@
-import { useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import NewChatButton from "./NewChatButton";
 import ChatHistory from "./ChatHistory";
 import UserProfile from "./UserProfile";
@@ -6,10 +6,15 @@ import LOGO from "../../assets/image/OCS_LLM.png";
 
 type Props = {
   onSelectMessages: (which: 0 | 1 | 2 | 3) => void;
+  // Notifies App when a chat is deleted in-memory; receives true if deleted chat was active
+  onDeleteChat?: (wasActive: boolean) => void;
+  chats: string[];
+  onDeleteRequested?: (index: number) => void;
+  activeChat: number | null;
+  setActiveChat: Dispatch<SetStateAction<number | null>>;
 };
 
-export default function Sidebar({ onSelectMessages }: Props) {
-  const [activeChat, setActiveChat] = useState<number | null>(0);
+export default function Sidebar({ onSelectMessages, onDeleteChat, chats, onDeleteRequested, activeChat, setActiveChat }: Props) {
 
   const handleNew = () => {
     onSelectMessages(0);
@@ -39,6 +44,13 @@ export default function Sidebar({ onSelectMessages }: Props) {
           onSelectMessages={onSelectMessages}
           activeChat={activeChat}
           setActiveChat={setActiveChat}
+          chats={chats}
+          onDeleteRequested={(index) => {
+            const wasActive = activeChat === index;
+            if (wasActive) setActiveChat(null);
+            onDeleteRequested?.(index);
+            (typeof (onDeleteChat) === 'function') && onDeleteChat(wasActive);
+          }}
         />
       </div>
 

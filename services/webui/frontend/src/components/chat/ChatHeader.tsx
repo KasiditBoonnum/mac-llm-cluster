@@ -2,7 +2,11 @@ import MoreIcons from "../../assets/image/dots.png";
 import ToolMenu from "../popup/ToolMenu.tsx";
 import { useState, useRef, useEffect } from "react";
 
-export default function ChatHeader() {
+type Props = {
+  onDeleteCurrent?: () => void;
+};
+
+export default function ChatHeader({ onDeleteCurrent }: Props) {
   const [showMenu, setShowMenu] = useState(false);
 
   // wrapper ของ popup ทั้งหมด
@@ -48,7 +52,7 @@ export default function ChatHeader() {
 
       {/* Tool popup */}
       {showMenu && (
-        <ToolMenu/>
+        <ToolMenu onDelete={() => onDeleteCurrent?.()} onClose={() => setShowMenu(false)} />
       )}
 
       <button onClick={() => setShowMenu((prev) => !prev)}>
