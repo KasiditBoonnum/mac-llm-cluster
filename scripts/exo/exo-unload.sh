@@ -21,22 +21,22 @@ echo ""
 info "Resolving instance ID..."
 ENCODED_MODEL=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$MODEL")
 
-INSTANCE_ID=$(curl -s --max-time 10 \
-    "$BASE_URL/instance/previews?model_id=${ENCODED_MODEL}&sharding=Pipeline&instance_meta=MlxRing" \
-    2>/dev/null | python3 -c "
+INSTANCE_ID=$(curl -s --max-time 10 "$BASE_URL/state" 2>/dev/null | python3 -c "
 import sys, json
+model = sys.argv[1]
 try:
     d = json.load(sys.stdin)
-    for preview in d.get('previews', []):
-        instance = preview.get('instance') or {}
-        for key, val in instance.items():
-            if isinstance(val, dict) and 'instanceId' in val:
-                print(val['instanceId'])
-                sys.exit(0)
+    for iid, inst in d.get('instances', {}).items():
+        for key, val in inst.items():
+            if isinstance(val, dict):
+                assignments = val.get('shardAssignments') or {}
+                if assignments.get('modelId') == model:
+                    print(iid)
+                    sys.exit(0)
     sys.exit(1)
 except Exception:
     sys.exit(1)
-" 2>/dev/null || true)
+" "$MODEL" 2>/dev/null || true)
 
 if [[ -z "$INSTANCE_ID" ]]; then
     error "Could not resolve instance ID — is the model loaded?"
