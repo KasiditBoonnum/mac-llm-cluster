@@ -1,25 +1,25 @@
 model_list:
   - model_name: phi4:latest
     litellm_params:
-      model: openai/phi4:latest
+      model: ollama/phi4:latest
       api_base: http://localhost:8080/v1
       api_key: none
 
   - model_name: qwen2.5:32b-instruct-q4_K_M
     litellm_params:
-      model: openai/qwen2.5:32b-instruct-q4_K_M
+      model: ollama/qwen2.5:32b-instruct-q4_K_M
       api_base: http://localhost:8080/v1
       api_key: none
 
   - model_name: deepseek-coder:33b-instruct-q4_K_M
     litellm_params:
-      model: openai/deepseek-coder:33b-instruct-q4_K_M
+      model: ollama/deepseek-coder:33b-instruct-q4_K_M
       api_base: http://localhost:8080/v1
       api_key: none
 
   - model_name: exo:Qwen3.6-35B-A3B-8bit
     litellm_params:
-      model: openai/exo:Qwen3.6-35B-A3B-8bit
+      model: ollama/exo:Qwen3.6-35B-A3B-8bit
       api_base: http://localhost:8080/v1
       api_key: none
 
