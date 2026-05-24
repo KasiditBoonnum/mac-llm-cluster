@@ -222,13 +222,17 @@ Step 6: Response returned to user
 Single entry point for all requests. **Port 8082** | Python FastAPI
 
 ```
-REQUESTS ────────▶  AI GATEWAY
+REQUESTS ────────▶  AI GATEWAY (Port 8082)
                     ├─ 1. Optional API key validation
                     ├─ 2. PII scan & selective scrubbing
-                    ├─ 3. RAG document retrieval (Qdrant)
-                    ├─ 4. Route to LiteLLM proxy (8083)
+                    ├─ 3. RAG document retrieval (Qdrant :6333)
+                    ├─ 4. Route:
+                    │       standard models → LiteLLM proxy (:8083)
+                    │       Exo model      → llm-01.local:5678
                     └─ 5. Return response + log pipeline
 ```
+
+**LiteLLM routing:** latency-based, 120s timeout. API key: `sk-llm-cluster`.
 
 **OpenAI API compatibility:** Any application already calling an OpenAI-compatible endpoint can redirect to this cluster by changing only the base URL — no code changes needed.
 
@@ -265,7 +269,7 @@ Node 3: [DeepSeek 33B]         Node 3: ║ -A3B-8bit (MLX)  ║
 
 5-minute idle timeout: Exo unloads to free resources.
 
-SSH tunnels reach Node 2 and Node 3 Ollama instances (ports 11435–11437).
+SSH tunnels: Node 2 Ollama → localhost:11435 | Node 3 Ollama → localhost:11436 & 11437.
 
 ---
 
@@ -313,7 +317,7 @@ QUERY (every request):
 >
 > **Thai OCR:** Digitally-created Thai PDFs work reliably. Scanned Thai documents may not extract correctly in all cases due to font and encoding variability.
 
-Admin dashboard at `/dashboard` for upload, delete, stats, and test queries.
+Admin dashboard at `/admin` for upload, delete, stats, and test queries.
 
 ---
 
@@ -345,12 +349,15 @@ Automatically detects and replaces personal data before it reaches the AI. **Mic
 Snapshots all metrics every 15 seconds from all three nodes.
 
 ```
-Per Node:
-  CPU:    per-core usage (%)
-  GPU:    residency / utilization (%)
-  RAM:    used GB, available GB, usage %
-  Power:  system draw (milliwatts)
-  AI:     active request count, tokens/second
+Per Node (mac-metrics-exporter, port 9101):
+  CPU:    per-core usage % (psutil)
+  GPU:    residency / utilization % (sudo powermetrics)
+  RAM:    used GB, available GB, usage % (psutil)
+  Power:  system draw (milliwatts, sudo powermetrics)
+
+Per Node (inference-metrics-exporter, port 9102):
+  AI:     active request count per node
+          tokens/second per node
 ```
 
 ### Grafana (Port 3001)
@@ -373,13 +380,13 @@ Two pre-provisioned dashboards:
 └─────────────────────────────────────────────────────┘
 ```
 
-**Auto-alerts:** NodeDown, CPU >95%, RAM >95%
+**Auto-alerts:** NodeDown (1 min), CPU >95% (5 min), RAM >95% (5 min), Temperature >90°C (2 min)
 
 ---
 
 ## 7.6 Web UI (`services/webui/`)
 
-Custom chat interface for the cluster. **React 19 + TypeScript + Tailwind CSS 4 + Vite | Express.js backend**
+Custom chat interface for the cluster. **React 19 + TypeScript + Tailwind CSS 4 + Vite | Express.js backend (port 8000)**
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -473,16 +480,19 @@ Sleep disabled, firewall with logging, SSH hardened, iCloud/Siri/telemetry disab
 Three services run continuously on Node 1 via LaunchAgent:
 
 ## Log Analyzer (`services/automation/log-analyzer.py`)
-**Schedule: Hourly**
-Reads service logs from all nodes → submits to local AI → identifies errors, warnings, root causes → saves to `logs/analysis/YYYY-MM-DD-HH.md`
+**Schedule: Hourly** | **Model: phi4:latest via Gateway (localhost:8082)**
+
+Watches `/var/log/nginx/error.log` and `/tmp/queue-manager.err` → submits to phi4 → identifies errors, warnings, root causes → saves to `logs/analysis/YYYY-MM-DD-HH.md`
 
 ## Report Generator (`services/automation/report-generator.py`)
-**Schedule: Daily**
-Produces a cluster health report: uptime, request totals, model usage, error rates, performance trends.
+**Schedule: Daily** | **Model: phi4:14b-q5_K_M direct on llm-01.local:11434**
+
+Produces a cluster health report: uptime, request totals, disk info, queue status, performance trends. Saves to `logs/reports/`.
 
 ## Code Reviewer (`services/automation/code-reviewer.py`)
-Uses DeepSeek Coder V2 (33B) to review a submitted file or git diff.
-Output: security issues, logic errors, style notes, quality rating.
+**On demand** | **Model: deepseek-coder-v2:33b-instruct-q4_K_M direct on llm-01.local:11434** | 120s timeout
+
+Reviews a submitted file path or git diff. Output: security issues, logic errors, style notes, quality rating.
 
 ---
 
@@ -532,9 +542,9 @@ Phase 8  Queue & Validation         Start Queue Manager, LaunchAgents,
 Switch:   TP-LINK SX3008F (8-port 10 GbE)
 Subnet:   192.168.10.0/24
 
-llm-01.local  192.168.10.x  (Primary)
-llm-02.local  192.168.10.x  (Inference)
-llm-03.local  192.168.10.x  (Dynamic)
+llm-01.local  192.168.10.11  (Primary)
+llm-02.local  192.168.10.12  (Inference)
+llm-03.local  192.168.10.13  (Dynamic)
 ```
 
 ## 10 Gigabit Ethernet
@@ -550,16 +560,19 @@ llm-03.local  192.168.10.x  (Dynamic)
 ```
 EXTERNAL (Nginx on Node 1):  8443 HTTPS · 3000 Web UI · 3001 Grafana · 9090 Prometheus
 NODE 1 INTERNAL:             8082 Gateway · 8083 LiteLLM · 8080 Queue · 8081 RAG · 6333 Qdrant
-INFERENCE (SSH tunnel):      11434 Ollama N1&N2 · 11435 Ollama N3 · 5678 Exo
+INFERENCE:                   11434 Ollama (Node 1, local)
+                             5678 Exo (Node 1, coordinator)
 MONITORING (all nodes):      9100 Node Exporter · 9101 Mac Exporter · 9102 Inference Exporter
 ```
 
-## SSH Tunnels
+## SSH Tunnels (Node 1 Local Port Forwarding)
+
+The Queue Manager and LiteLLM proxy on Node 1 reach remote Ollama instances via SSH port forwarding:
 
 ```
-Node 1 (Queue Manager)
-  ├── SSH tunnel → port 11436 → Node 2 Ollama (11434)
-  └── SSH tunnel → port 11437 → Node 3 Ollama (11435)
+localhost:11435  ──SSH──▶  llm-02 (192.168.10.12) :11434  [Qwen 2.5 32B]
+localhost:11436  ──SSH──▶  llm-03 (192.168.10.13) :11435  [Qwen 2.5 32B / Node 3]
+localhost:11437  ──SSH──▶  llm-03 (192.168.10.13) :11435  [DeepSeek Coder V2 / Node 3 alt]
 
 Maintained by LaunchAgents — auto-reconnect on drop.
 ```
