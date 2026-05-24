@@ -23,7 +23,7 @@ model_list:
   # llm03 — deepseek-coder via SSH tunnel (localhost:11437 → llm03:11435)
   - model_name: deepseek-coder:33b-instruct-q4_K_M
     litellm_params:
-      model: ollama/deepseek-coder-v2:33b-instruct-q4_K_M
+      model: ollama/deepseek-coder:33b-instruct-q4_K_M
       api_base: http://localhost:11437
       api_key: none
 
