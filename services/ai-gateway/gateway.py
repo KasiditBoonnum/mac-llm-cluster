@@ -97,8 +97,13 @@ def inject_rag(messages: list) -> list:
 
 def scrub_pii(text: str, language: str = "en") -> str:
     """Replace PII entities with <ENTITY_TYPE> placeholders, keeping IP addresses intact."""
+    import re
+    ip_spans = [(m.start(), m.end()) for m in re.finditer(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', text)]
     results = _analyzer.analyze(text=text, language=language)
-    results = [r for r in results if r.entity_type != "IP_ADDRESS"]
+    results = [
+        r for r in results
+        if not any(r.start < ip_end and r.end > ip_start for ip_start, ip_end in ip_spans)
+    ]
     return _anonymizer.anonymize(text=text, analyzer_results=results).text
 
 
