@@ -9,13 +9,13 @@ Client
   ↓
 gateway.py :8082       ← RAG injection + PII scrubbing (Presidio)
   ↓
-LiteLLM proxy :8083    ← Load balancing + auto model selection
-  ↓
-queue_manager :8080    ← Intelligent routing (Exo, node switching, idle timeout)
+LiteLLM proxy :8083    ← Load balancing + latency-based routing
   ↓          ↓          ↓
 llm-01      llm-02     llm-03
-phi4        qwen2.5    qwen2.5
-:11434      :11434     :11434
+phi4        qwen2.5    qwen2.5 / deepseek-coder
+:11434      :11435*    :11436* / :11437*
+
+* SSH tunnel ผ่าน localhost
 ```
 
 ## Features
@@ -31,19 +31,14 @@ PII scrubbing เกิดขึ้นที่ **gateway.py** ก่อน requ
 | อีเมล | john@gmail.com | `<EMAIL_ADDRESS>` |
 | เบอร์โทร | 055-123-4567 | `<PHONE_NUMBER>` |
 | บัตรเครดิต | 4111-1111-1111-1111 | `<CREDIT_CARD>` |
-| IP | 192.168.1.1 | `<IP_ADDRESS>` |
+
+> **หมายเหตุ:** IP address ไม่ถูก mask — ยังคง show ตามปกติ
 
 ### RAG (Retrieval-Augmented Generation)
 ดึง context จาก Qdrant vector database และ inject เป็น system message
 
-### Load Balancing + Auto Model Selection (LiteLLM)
-กระจาย request ระหว่าง nodes อัตโนมัติด้วย `least-busy` routing — ไม่ต้องระบุ model ก็ได้ ใช้ `"model": "auto"` แล้ว LiteLLM จะเลือก node ที่ว่างที่สุดให้
-
-### Intelligent Routing (Queue Manager)
-queue_manager :8080 จัดการ:
-- **Exo switching** — โหลด/ปิด distributed inference อัตโนมัติ
-- **Node 3 model switching** — สลับระหว่าง Qwen ↔ DeepSeek ตาม request
-- **Idle timeout** — คืน VRAM เมื่อไม่ใช้งาน
+### Load Balancing (LiteLLM)
+กระจาย request ระหว่าง nodes อัตโนมัติด้วย `latency-based-routing` — เลือก node ที่ตอบเร็วที่สุด
 
 ## Installation
 
@@ -56,6 +51,7 @@ bash scripts/gateway/install-gateway.sh
 # 2. เปิด SSH tunnels ไป llm-02/llm-03
 ssh -N -f -L 11435:localhost:11434 llm-02
 ssh -N -f -L 11436:localhost:11434 llm-03
+ssh -N -f -L 11437:localhost:11435 llm-03
 ```
 
 ### Dependencies
@@ -83,7 +79,6 @@ ssh -N -f -L 11437:localhost:11435 llm-03
 |---|---|---|
 | AI Gateway | 8082 | `com.llm.ai-gateway` |
 | LiteLLM Proxy | 8083 | `com.llm.litellm-proxy` |
-| Queue Manager | 8080 | `com.llm.queue-manager` |
 
 ## Health Check
 
@@ -124,13 +119,13 @@ curl -X POST http://llm-01.local:8082/v1/chat/completions \
 ```
 
 ### Available Models
-| Model | Node |
-|---|---|
-| `auto` | LiteLLM เลือก node ที่ว่างที่สุด |
-| `phi4:latest` | llm-01 |
-| `qwen2.5:32b-instruct-q4_K_M` | llm-02, llm-03 (load balanced) |
-| `deepseek-coder:33b-instruct-q4_K_M` | llm-03 |
-| `exo:Qwen3.6-35B-A3B-8bit` | llm-01, llm-02, llm-03 (distributed) |
+
+| Model | Node | Port | Status |
+|---|---|---|---|
+| `phi4:latest` | llm-01 | 11434 | ✅ |
+| `qwen2.5:32b-instruct-q4_K_M` | llm-02 | 11435 | ✅ |
+| `qwen2.5:32b-instruct-q4_K_M-node3` | llm-03 | 11436 | ⚠️ RAM limited |
+| `deepseek-coder:33b-instruct-q4_K_M` | llm-03 | 11437 | ✅ |
 
 ## Logs
 
@@ -138,7 +133,6 @@ curl -X POST http://llm-01.local:8082/v1/chat/completions \
 tail -f /tmp/ai-gateway.log      # Gateway logs
 tail -f /tmp/ai-gateway.err      # Gateway errors
 tail -f /tmp/litellm-proxy.log   # LiteLLM logs
-tail -f /tmp/queue-manager.log   # Queue logs
 ```
 
 ## Files
@@ -146,7 +140,7 @@ tail -f /tmp/queue-manager.log   # Queue logs
 ```
 services/ai-gateway/
 ├── gateway.py              # Main gateway (RAG + PII scrubbing)
-├── litellm_config.yaml     # LiteLLM routing config (ชี้หา queue_manager :8080)
+├── litellm_config.yaml     # LiteLLM routing config (ชี้หา Ollama โดยตรงผ่าน SSH tunnel)
 ├── presidio_callback.py    # Presidio callback class (reserved for future use)
 ├── requirements.txt        # Python dependencies
 └── api_key.txt             # API keys (optional, ถ้าไม่มีจะ allow ทุก key)
