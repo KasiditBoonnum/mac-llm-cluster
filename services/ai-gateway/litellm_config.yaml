@@ -27,6 +27,13 @@ model_list:
       api_base: http://localhost:11437
       api_key: none
 
+  # exo cluster — Qwen3.6 35B distributed across llm-01/02/03
+  - model_name: exo:Qwen3.6-35B-A3B-8bit
+    litellm_params:
+      model: openai/mlx-community/Qwen3.6-35B-A3B-8bit
+      api_base: http://localhost:5678
+      api_key: none
+
 litellm_settings:
   set_verbose: true
 
