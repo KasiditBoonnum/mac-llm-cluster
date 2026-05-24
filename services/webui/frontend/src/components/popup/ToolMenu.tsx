@@ -1,4 +1,4 @@
-import RecycleBin from '../../assets/recycle-bin.png';
+import RecycleBin from '../../assets/image/recycle-bin.png';
 
 export default function UploadMenu() {
   

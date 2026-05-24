@@ -2,7 +2,7 @@ import { useState } from "react";
 import NewChatButton from "./NewChatButton";
 import ChatHistory from "./ChatHistory";
 import UserProfile from "./UserProfile";
-import LOGO from "../../assets/OCS_LLM.png";
+import LOGO from "../../assets/image/OCS_LLM.png";
 
 type Props = {
   onSelectMessages: (which: 0 | 1 | 2 | 3) => void;

@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* DB Ozone font faces from ./assets/font */
+@font-face {
+  font-family: 'DB Ozone';
+  src: url('./assets/font/DB%20Ozone%20X%20v3.2.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DB Ozone';
+  src: url('./assets/font/DB%20Ozone%20X%20Med%20v3.2.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DB Ozone';
+  src: url('./assets/font/DB%20Ozone%20X%20Bd%20v3.2.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --text: #6b6375;
   --text-h: #ffffff;
@@ -13,8 +36,8 @@
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'DB Ozone', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: 'DB Ozone', system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
   font: 16px/145% var(--sans);

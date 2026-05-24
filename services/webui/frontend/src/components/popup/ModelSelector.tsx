@@ -1,6 +1,6 @@
-import DeepSeekIcon from "../../assets/deepSeekIcon.png";
-import Phi4Icon from "../../assets/phiIcon.png";
-import QwenIcon from "../../assets/qwenIcon.png";
+import DeepSeekIcon from "../../assets/image/deepSeekIcon.png";
+import Phi4Icon from "../../assets/image/phiIcon.png";
+import QwenIcon from "../../assets/image/qwenIcon.png";
 
 const models = [
   {

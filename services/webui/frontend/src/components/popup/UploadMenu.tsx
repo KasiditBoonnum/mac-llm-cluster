@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import UploadIcon from "../../assets/UploadIcon.png";
+import UploadIcon from "../../assets/image/UploadIcon.png";
 
 export default function UploadMenu() {
 

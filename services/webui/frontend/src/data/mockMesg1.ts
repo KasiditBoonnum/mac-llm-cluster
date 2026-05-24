@@ -21,7 +21,7 @@ export const mockMessages: Message[] = [
   
   {
     id: 4,
-    text: "กูไม่บอก",
+    text: "ผมไม่ขอตอบครับ เพราะมันเป็นเรื่องที่ผิดกฎหมายและไม่เหมาะสมครับ",
     sender: "bot",
   },
 ];

@@ -1,4 +1,4 @@
-import MoreIcons from "../../assets/dots.png";
+import MoreIcons from "../../assets/image/dots.png";
 import ToolMenu from "../popup/ToolMenu.tsx";
 import { useState, useRef, useEffect } from "react";
 
