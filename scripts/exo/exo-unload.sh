@@ -22,16 +22,17 @@ info "Resolving instance ID..."
 ENCODED_MODEL=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$MODEL")
 
 INSTANCE_ID=$(curl -s --max-time 10 \
-    "$BASE_URL/instance/placement?model_id=${ENCODED_MODEL}&sharding=Pipeline&instance_meta=MlxRing" \
+    "$BASE_URL/instance/previews?model_id=${ENCODED_MODEL}&sharding=Pipeline&instance_meta=MlxRing" \
     2>/dev/null | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    # Response is wrapped in the instance type key e.g. MlxRingInstance
-    for key, val in d.items():
-        if isinstance(val, dict) and 'instanceId' in val:
-            print(val['instanceId'])
-            sys.exit(0)
+    for preview in d.get('previews', []):
+        instance = preview.get('instance') or {}
+        for key, val in instance.items():
+            if isinstance(val, dict) and 'instanceId' in val:
+                print(val['instanceId'])
+                sys.exit(0)
     sys.exit(1)
 except Exception:
     sys.exit(1)
