@@ -110,26 +110,26 @@ AI replies: "The server crashed at 14:32 because disk space
 ║                    MAC LLM CLUSTER PLATFORM                      ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║                                                                  ║
-║  USERS                    GATEWAY LAYER               AI LAYER  ║
-║  ┌─────────┐   HTTPS     ┌──────────────┐           ┌────────┐  ║
-║  │  Chat   │────────────▶│  AI Gateway  │──────────▶│ Node 1 │  ║
-║  │  Web UI │             │  (Port 8082) │           │ Phi-4  │  ║
-║  └─────────┘             │              │           └────────┘  ║
-║  ┌─────────┐             │  ✓ Privacy   │           ┌────────┐  ║
-║  │ Scripts │────────────▶│  ✓ RAG       │──────────▶│ Node 2 │  ║
-║  │  / API  │             │  ✓ Load Bal  │           │Qwen2.5 │  ║
-║  └─────────┘             └──────────────┘           └────────┘  ║
-║                          ┌──────────────┐           ┌────────┐  ║
-║                          │Queue Manager │──────────▶│ Node 3 │  ║
-║                          │  (Port 8080) │           │Dynamic │  ║
-║                          └──────────────┘           └────────┘  ║
+║  USERS                    GATEWAY LAYER               AI LAYER   ║
+║  ┌─────────┐   HTTPS     ┌──────────────┐           ┌────────┐   ║
+║  │  Chat   │────────────▶│  AI Gateway  │──────────▶│ Node 1 │   ║
+║  │  Web UI │             │  (Port 8082) │           │ Phi-4  │   ║
+║  └─────────┘             │              │           └────────┘   ║
+║  ┌─────────┐             │  ✓ Privacy   │           ┌────────┐   ║
+║  │ Scripts │────────────▶│  ✓ RAG       │──────────▶│ Node 2 │   ║
+║  │  / API  │             │  ✓ Load Bal  │           │Qwen2.5 │   ║
+║  └─────────┘             └──────────────┘           └────────┘   ║
+║                          ┌──────────────┐           ┌────────┐   ║
+║                          │Queue Manager │──────────▶│ Node 3 │   ║
+║                          │  (Port 8080) │           │Dynamic │   ║
+║                          └──────────────┘           └────────┘   ║
 ║                                                                  ║
-║  KNOWLEDGE BASE           MONITORING                            ║
-║  ┌──────────────┐         ┌──────────────────────────────────┐  ║
-║  │  RAG Server  │         │ Prometheus (metrics) + Grafana   │  ║
-║  │  (Port 8081) │         │        (dashboards)              │  ║
-║  │  Qdrant DB   │         └──────────────────────────────────┘  ║
-║  └──────────────┘                                               ║
+║  KNOWLEDGE BASE           MONITORING                             ║
+║  ┌──────────────┐         ┌──────────────────────────────────┐   ║
+║  │  RAG Server  │         │ Prometheus (metrics) + Grafana   │   ║
+║  │  (Port 8081) │         │        (dashboards)              │   ║
+║  │  Qdrant DB   │         └──────────────────────────────────┘   ║
+║  └──────────────┘                                                ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 
@@ -259,8 +259,8 @@ NORMAL MODE:                   DISTRIBUTED EXO MODE:
 Node 1: [ Phi-4 14B ]          Node 1: ╔══════════════════╗
 Node 2: [Qwen 2.5 32B]         Node 2: ║ Qwen3.6-35B      ║
 Node 3: [DeepSeek 33B]         Node 3: ║ -A3B-8bit (MLX)  ║
-                                        ║ 65,536 ctx tokens ║
-                                        ╚══════════════════╝
+                                       ║ 65,536 ctx tokens║
+                                       ╚══════════════════╝
 ```
 
 5-minute idle timeout: Exo unloads to free resources.
@@ -389,7 +389,7 @@ Custom chat interface for the cluster. **React 19 + TypeScript + Tailwind CSS 4 
 │ │   Chat   │  │                                              │ │
 │ │ History: │  │  You: Analyze this error log...              │ │
 │ │ > Chat 1 │  │                                              │ │
-│ │ [Model ▼]│  │  [Type your message...]  [📎] [Send]         │ │
+│ │ [Model ▼]│  │  [Type your message...]  [+] [Send]          │ │
 │ └──────────┘  └──────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────────┘
 ```
