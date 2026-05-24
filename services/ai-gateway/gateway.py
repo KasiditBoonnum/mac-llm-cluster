@@ -36,8 +36,9 @@ RAG_THRESHOLD = 0.45
 app = FastAPI(title="LLM Cluster Gateway")
 security = HTTPBearer()
 
-LITELLM_URL = "http://localhost:8083"  # ollama models via LiteLLM
-EXO_URL     = "http://localhost:8080"  # exo models via queue manager (handles load/unload)
+LITELLM_URL = "http://localhost:8083"        # ollama models via LiteLLM
+EXO_URL     = "http://llm-01.local:5678"    # exo cluster direct (managed by LaunchAgent)
+EXO_MODEL   = "mlx-community/Qwen3.6-35B-A3B-8bit"
 API_KEY_FILE = Path(__file__).parent / "api_key.txt"
 
 
@@ -158,8 +159,8 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
 
     if is_exo_model(req.model):
         target_url = EXO_URL
-        log(f"[4] Forwarding        → Queue Manager :8080 (exo) model={req.model}")
-        forward_kwargs = {"json": {"model": req.model, "messages": messages, "stream": req.stream}, "timeout": 600}
+        log(f"[4] Forwarding        → Exo :5678 model={EXO_MODEL}")
+        forward_kwargs = {"json": {"model": EXO_MODEL, "messages": messages, "stream": req.stream}, "timeout": 600}
     else:
         target_url = LITELLM_URL
         log(f"[4] Forwarding        → LiteLLM :8083 model={req.model}")
