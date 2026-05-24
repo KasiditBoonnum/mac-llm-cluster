@@ -97,9 +97,21 @@ def inject_rag(messages: list) -> list:
 
 def scrub_pii(text: str, language: str = "en") -> str:
     """Replace PII entities with <ENTITY_TYPE> placeholders, keeping IP addresses intact."""
-    results = _analyzer.analyze(text=text, language=language)
-    results = [r for r in results if r.entity_type != "IP_ADDRESS"]
-    return _anonymizer.anonymize(text=text, analyzer_results=results).text
+    import re
+    ip_re = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
+    ip_tokens = {}
+
+    def mask_ip(m):
+        token = f"__IPTOKEN{len(ip_tokens)}__"
+        ip_tokens[token] = m.group()
+        return token
+
+    masked = ip_re.sub(mask_ip, text)
+    results = _analyzer.analyze(text=masked, language=language)
+    anonymized = _anonymizer.anonymize(text=masked, analyzer_results=results).text
+    for token, ip in ip_tokens.items():
+        anonymized = anonymized.replace(token, ip)
+    return anonymized
 
 
 def scrub_messages(messages: list) -> list:
