@@ -36,8 +36,13 @@ RAG_THRESHOLD = 0.45
 app = FastAPI(title="LLM Cluster Gateway")
 security = HTTPBearer()
 
-QUEUE_URL = "http://localhost:8083"
+LITELLM_URL = "http://localhost:8083"  # ollama models via LiteLLM
+EXO_URL     = "http://localhost:8080"  # exo models via queue manager (handles load/unload)
 API_KEY_FILE = Path(__file__).parent / "api_key.txt"
+
+
+def is_exo_model(model: str) -> bool:
+    return "exo" in model.lower()
 
 
 def load_api_keys() -> set:
@@ -151,14 +156,20 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
     else:
         log(f"[3] PII skipped")
 
-    log(f"[4] Forwarding        → LiteLLM :8083 model={req.model}")
+    if is_exo_model(req.model):
+        target_url = EXO_URL
+        log(f"[4] Forwarding        → Queue Manager :8080 (exo) model={req.model}")
+        forward_kwargs = {"json": {"model": req.model, "messages": messages, "stream": req.stream}, "timeout": 600}
+    else:
+        target_url = LITELLM_URL
+        log(f"[4] Forwarding        → LiteLLM :8083 model={req.model}")
+        forward_kwargs = {
+            "json": {"model": req.model, "messages": messages, "stream": req.stream},
+            "headers": {"Authorization": "Bearer sk-llm-cluster"},
+            "timeout": 600,
+        }
     t0 = time.time()
-    resp = requests.post(
-        f"{QUEUE_URL}/v1/chat/completions",
-        json={"model": req.model, "messages": messages, "stream": req.stream},
-        headers={"Authorization": "Bearer sk-llm-cluster"},
-        timeout=600,
-    )
+    resp = requests.post(f"{target_url}/v1/chat/completions", **forward_kwargs)
     elapsed = time.time() - t0
     if resp.status_code == 200:
         data = resp.json()
