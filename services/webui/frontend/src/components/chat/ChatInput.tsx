@@ -3,7 +3,7 @@ import UploadMenu from "../popup/UploadMenu";
 import ModelSelector from "../popup/ModelSelector";
 
 type Props = {
-  onSend?: (text: string) => void;
+  onSend?: (text: string, files?: File[]) => void;
 };
 
 export default function ChatInput({ onSend }: Props) {
@@ -16,6 +16,9 @@ export default function ChatInput({ onSend }: Props) {
 
   const textareaRef =
     useRef<HTMLTextAreaElement>(null);
+
+  // ไฟล์ที่เลือก (แสดงเป็นกล่องใน prompt)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // wrapper ของ popup ทั้งหมด
   const popupRef = useRef<HTMLDivElement>(null);
@@ -91,7 +94,35 @@ export default function ChatInput({ onSend }: Props) {
 
         {/* Upload popup */}
         {showUpload && (
-          <UploadMenu />
+          <UploadMenu onFileSelect={(file) => {
+            setSelectedFiles((prev) => [...prev, file]);
+            setShowUpload(false);
+            const textarea = textareaRef.current;
+            if (textarea) textarea.focus();
+          }} />
+        )}
+
+        {/* Selected files preview (as boxes) */}
+        {selectedFiles.length > 0 && (
+          <div className="flex gap-2 mb-2 px-2">
+            {selectedFiles.map((f, idx) => (
+              <div key={idx} className="flex items-center gap-2 bg-white border rounded-lg px-3 py-2">
+                <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded">
+                  <span className="text-sm">{(f.name.split('.').pop() || 'file').toUpperCase()}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium max-w-[200px] truncate">{f.name}</span>
+                  <span className="text-xs text-gray-500">{f.type || 'unknown'}</span>
+                </div>
+                <button
+                  onClick={() => setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                  className="ml-2 text-gray-400 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
         )}
 
         {/* Model popup */}
@@ -186,11 +217,13 @@ export default function ChatInput({ onSend }: Props) {
               const textarea = textareaRef.current;
               if (!textarea) return;
               const text = textarea.value.trim();
-              if (!text) return;
-              // call parent handler if provided
-              if (onSend) onSend(text);
+              if (!text && selectedFiles.length === 0) return;
+              // call parent handler if provided (include files)
+              if (onSend) onSend(text, selectedFiles.length ? selectedFiles : undefined);
+              // clear
               textarea.value = "";
               textarea.style.height = "auto";
+              setSelectedFiles([]);
             }}
           >
             ส่ง

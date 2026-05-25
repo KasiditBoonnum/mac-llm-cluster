@@ -22,19 +22,49 @@ function App() {
   const [activeChat, setActiveChat] = useState<number | null>(null);
 
   // Send a message to backend and append response
-  const handleSend = async (text: string) => {
+  const handleSend = async (text: string, files?: File[]) => {
     const userMsg: Message = { id: Date.now(), text, sender: "user" };
     setMessages((m) => [...m, userMsg]);
 
     try {
-      const resp = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "qwen2.5", messages: [{ role: "user", content: text }] }),
-      });
-      const data = await resp.json();
-      // attempt to read assistant content (OpenAI-like)
-      const botText = data?.choices?.[0]?.message?.content || JSON.stringify(data);
+      let resp: Response;
+
+      // Authorization: prefer VITE_API_KEY, fallback to localStorage 'apiKey'
+      const apiKey = import.meta.env.VITE_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('apiKey') : null);
+      const authHeader = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
+
+      const endpoint = "/v1/chat/completions";
+
+      if (files && files.length > 0) {
+        const form = new FormData();
+        form.append("model", "qwen2.5");
+        form.append("messages", JSON.stringify([{ role: "user", content: text }]));
+        files.forEach((f, i) => form.append("files", f));
+
+        resp = await fetch(endpoint, {
+          method: "POST",
+          headers: authHeader,
+          body: form,
+        });
+      } else {
+        resp = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ model: "qwen2.5", messages: [{ role: "user", content: text }] }),
+        });
+      }
+
+      // read text first (safer), then try parse JSON
+      const raw = await resp.text();
+      let botText: string;
+      try {
+        const data = raw ? JSON.parse(raw) : null;
+        botText = data?.choices?.[0]?.message?.content || raw || JSON.stringify(data);
+      } catch (e) {
+        // not JSON
+        botText = raw || resp.statusText || "(empty response)";
+      }
+
       const botMsg: Message = { id: Date.now() + 1, text: botText, sender: "bot" };
       setMessages((m) => [...m, botMsg]);
     } catch (err) {

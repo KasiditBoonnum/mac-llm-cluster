@@ -1,7 +1,11 @@
 import { useRef } from "react";
 import UploadIcon from "../../assets/image/UploadIcon.png";
 
-export default function UploadMenu() {
+type Props = {
+  onFileSelect?: (file: File) => void;
+};
+
+export default function UploadMenu({ onFileSelect }: Props) {
 
   // reference ไปยัง input file
   const fileInputRef =
@@ -28,8 +32,14 @@ export default function UploadMenu() {
     console.log("ชนิดไฟล์:", file.type);
     console.log("ขนาด:", file.size);
 
+    // แจ้งกลับไปยัง parent
+    if (onFileSelect) onFileSelect(file);
+
+    // ล้างค่า input เพื่อให้สามารถเลือกไฟล์เดิมได้อีกครั้ง
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
     // TODO:
-    // ส่ง file ไป backend
+    // ส่ง file ไป backend หากต้องการ
   };
 
   return (
