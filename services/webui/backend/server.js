@@ -32,6 +32,14 @@ const MODELS = [
   { name: "deepseek", desc: "DeepSeek coder" },
 ];
 
+// Map short names to the actual model identifiers expected by the LITELLM/Gateway
+const MODEL_ALIASES = {
+  "qwen2.5": "qwen2.5:32b-instruct-q4_K_M",
+  "deepseek": "deepseek-coder:33b-instruct-q4_K_M",
+  "qwen3.6": "mlx-community/Qwen3.6-35B-A3B-8bit",
+  "phi4": "phi4:latest",
+};
+
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body || {};
   if (username === "admin" && password === "admin") {
@@ -123,7 +131,9 @@ app.post("/api/chat", async (req, res) => {
       ];
     }
 
-    const body = { model, messages: forwardMessages };
+    // translate shorthand model names to actual model ids used by the gateway
+    const modelId = MODEL_ALIASES[(model || "").toLowerCase()] || model || "qwen2.5";
+    const body = { model: modelId, messages: forwardMessages };
 
     const r = await fetch(target, { method: "POST", headers, body: JSON.stringify(body) });
     const data = await r.json();
