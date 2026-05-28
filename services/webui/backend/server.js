@@ -52,7 +52,27 @@ app.post("/api/login", (req, res) => {
 });
 
 app.get("/api/models", (req, res) => {
-  res.json(MODELS);
+  (async () => {
+    try {
+      const target = `${LITELLM_URL.replace(/;.*$/, "")}/v1/models`;
+      const r = await fetch(target);
+      if (r.ok) {
+        const data = await r.json();
+        // data may be { object: 'list', data: [ { id, object, ... } ] }
+        const list = (data?.data || []).map((m) => {
+          // find a short alias if available
+          const alias = Object.keys(MODEL_ALIASES).find((k) => MODEL_ALIASES[k].toLowerCase() === (m.id || '').toLowerCase());
+          return { name: alias || m.id, id: m.id, desc: m.description || '' };
+        });
+        return res.json(list);
+      }
+    } catch (err) {
+      console.warn('Could not fetch models from LITELLM_URL', err);
+    }
+
+    // fallback to internal list
+    res.json(MODELS.map((m) => ({ name: m.name, id: MODEL_ALIASES[m.name] || m.name, desc: m.desc })));
+  })();
 });
 
 app.post("/api/upload", upload.single("file"), (req, res) => {
