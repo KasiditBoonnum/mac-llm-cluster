@@ -6,7 +6,7 @@ import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
 const app = express();
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 8082;
 
 app.use(cors());
 app.use(express.json());
