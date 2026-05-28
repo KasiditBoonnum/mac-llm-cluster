@@ -28,6 +28,7 @@ export default function ChatMessages({ messages }: Props) {
             key={message.id}
             text={message.text}
             sender={message.sender}
+            animate={message.animate}
           />
         ))
       )}

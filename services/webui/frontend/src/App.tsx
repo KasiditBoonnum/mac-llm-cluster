@@ -80,12 +80,12 @@ function App() {
         // ignore
       }
 
-      const botMsg: Message = { id: Date.now() + 1, text: botText, sender: "bot" };
+      const botMsg: Message = { id: Date.now() + 1, text: botText, sender: "bot", animate: true };
       setMessages((m) => [...m, botMsg]);
       // refresh history list
       fetchHistory();
     } catch (err) {
-      const errMsg: Message = { id: Date.now() + 2, text: "Error: " + String(err), sender: "bot" };
+      const errMsg: Message = { id: Date.now() + 2, text: "Error: " + String(err), sender: "bot", animate: false };
       setMessages((m) => [...m, errMsg]);
     }
   };
@@ -102,7 +102,7 @@ function App() {
       if (r.ok) {
         const data = await r.json();
         // data is array of messages
-        const msgs: Message[] = data.map((m: any) => ({ id: m.id || Date.now(), text: m.text || m, sender: m.sender || 'bot' }));
+        const msgs: Message[] = data.map((m: any) => ({ id: m.id || Date.now(), text: m.text || m, sender: m.sender || 'bot', animate: false }));
         setMessages(msgs);
       }
     } catch (e) {
