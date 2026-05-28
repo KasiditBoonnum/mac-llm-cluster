@@ -3,7 +3,7 @@ import UploadMenu from "../popup/UploadMenu";
 import ModelSelector from "../popup/ModelSelector";
 
 type Props = {
-  onSend?: (text: string, files?: File[]) => void;
+  onSend?: (text: string, files?: File[] | undefined, model?: string) => void;
 };
 
 export default function ChatInput({ onSend }: Props) {
@@ -219,7 +219,7 @@ export default function ChatInput({ onSend }: Props) {
               const text = textarea.value.trim();
               if (!text && selectedFiles.length === 0) return;
               // call parent handler if provided (include files)
-              if (onSend) onSend(text, selectedFiles.length ? selectedFiles : undefined);
+              if (onSend) onSend(text, selectedFiles.length ? selectedFiles : undefined, selectedModel);
               // clear
               textarea.value = "";
               textarea.style.height = "auto";

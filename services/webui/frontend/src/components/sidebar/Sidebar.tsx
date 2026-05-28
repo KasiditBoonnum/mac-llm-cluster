@@ -5,10 +5,10 @@ import UserProfile from "./UserProfile";
 import LOGO from "../../assets/image/OCS_LLM.png";
 
 type Props = {
-  onSelectMessages: (which: 0 | 1 | 2 | 3) => void;
+  onSelectMessages: (id?: string | null) => void;
   // Notifies App when a chat is deleted in-memory; receives true if deleted chat was active
   onDeleteChat?: (wasActive: boolean) => void;
-  chats: string[];
+  chats: { id?: string; title: string }[];
   onDeleteRequested?: (index: number) => void;
   activeChat: number | null;
   setActiveChat: Dispatch<SetStateAction<number | null>>;
@@ -17,7 +17,7 @@ type Props = {
 export default function Sidebar({ onSelectMessages, onDeleteChat, chats, onDeleteRequested, activeChat, setActiveChat }: Props) {
 
   const handleNew = () => {
-    onSelectMessages(0);
+    onSelectMessages(undefined);
     setActiveChat(null);
   };
 

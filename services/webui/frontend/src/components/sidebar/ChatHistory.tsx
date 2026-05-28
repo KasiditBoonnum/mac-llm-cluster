@@ -2,12 +2,12 @@ import React from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 type Props = {
-  onSelectMessages: (which: 0 | 1 | 2 | 3) => void;
+  onSelectMessages: (id?: string | null) => void;
   activeChat: number | null;
   setActiveChat: Dispatch<SetStateAction<number | null>>;
   // Called when a chat is deleted in-memory. Receives the deleted index.
   onDeleteRequested?: (index: number) => void;
-  chats: string[];
+  chats: { id?: string; title: string }[];
 };
 
 export default function ChatHistory({ onSelectMessages, activeChat, setActiveChat, onDeleteRequested, chats }: Props) {
@@ -39,17 +39,13 @@ export default function ChatHistory({ onSelectMessages, activeChat, setActiveCha
             role="button"
             onClick={() => {
               setActiveChat(index);
-              // Map chat index 0->1, 1->2, 2->3 (mockMesg files)
-              const which = (index + 1) as 1 | 2 | 3;
-              onSelectMessages(which);
+              onSelectMessages(chat.id);
             }}
-            className={
-              `w-full text-left p-2 transition flex items-center justify-between cursor-pointer`
-            }
+            className={`w-full text-left p-2 transition flex items-center justify-between cursor-pointer`}
           >
 
             <p className="text-sm text-gray-200 line-clamp-2 break-words whitespace-normal">
-              {chat}
+              {chat.title}
             </p>
 
             <button
