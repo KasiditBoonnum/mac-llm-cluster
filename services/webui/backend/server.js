@@ -11,7 +11,7 @@ const port = process.env.PORT || 8000;
 app.use(cors());
 app.use(express.json());
 
-const LITELLM_URL = process.env.LITELLM_URL || process.env.OLLAMA_BASE_URLS || "http://localhost:11434";
+const LITELLM_URL = process.env.LITELLM_URL || process.env.OLLAMA_BASE_URLS || "http://localhost:8082";
 const AUTH_HEADER = process.env.LITELLM_AUTH || "";
 
 // Simple storage
