@@ -8,6 +8,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    allowedHosts: ['llm-01.local'],
     // Proxy `/api` and `/v1` during frontend development to the AI Gateway
     proxy: {
       '/api': {
