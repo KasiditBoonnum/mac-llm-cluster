@@ -33,26 +33,20 @@ except ImportError:
     HAS_DOCX = False
 
 try:
-    from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+    import easyocr
     from PIL import Image
-    import torch
+    import numpy as np
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
 
-_trocr_processor = None
-_trocr_model = None
+_ocr_reader = None
 
-def _load_trocr():
-    global _trocr_processor, _trocr_model
-    if _trocr_processor is None:
-        model_id = 'openthaigpt/thai-trocr'
-        _trocr_processor = TrOCRProcessor.from_pretrained(model_id)
-        _trocr_model = VisionEncoderDecoderModel.from_pretrained(model_id)
-        device = 'mps' if torch.backends.mps.is_available() else 'cpu'
-        _trocr_model = _trocr_model.to(device)
-        _trocr_model.eval()
-    return _trocr_processor, _trocr_model
+def _load_reader():
+    global _ocr_reader
+    if _ocr_reader is None:
+        _ocr_reader = easyocr.Reader(['th', 'en'], gpu=False)
+    return _ocr_reader
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
@@ -160,14 +154,29 @@ def extract_page_with_tables(page) -> str:
 
 
 def ocr_page_with_structure(img) -> str:
-    """OCR a page using Thai TrOCR (openthaigpt/thai-trocr)."""
-    processor, model = _load_trocr()
-    device = next(model.parameters()).device
-    pixel_values = processor(images=img.convert('RGB'), return_tensors='pt').pixel_values.to(device)
-    with torch.no_grad():
-        generated_ids = model.generate(pixel_values)
-    text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-    return normalize(text)
+    """OCR a page using EasyOCR (Thai + English)."""
+    reader = _load_reader()
+    results = reader.readtext(np.array(img.convert('RGB')))
+    if not results:
+        return ''
+    results.sort(key=lambda r: (r[0][0][1], r[0][0][0]))
+    lines, cur_line, cur_y = [], [], None
+    for bbox, text, conf in results:
+        if conf < 0.1 or not text.strip():
+            continue
+        top_y = bbox[0][1]
+        height = max(bbox[2][1] - bbox[0][1], 1)
+        if cur_y is None or abs(top_y - cur_y) <= height * 0.6:
+            cur_line.append((bbox[0][0], text))
+            if cur_y is None:
+                cur_y = top_y
+        else:
+            lines.append(' '.join(w for _, w in sorted(cur_line)))
+            cur_line = [(bbox[0][0], text)]
+            cur_y = top_y
+    if cur_line:
+        lines.append(' '.join(w for _, w in sorted(cur_line)))
+    return normalize('\n'.join(lines))
 
 
 def extract_text(content: bytes, filename: str) -> str:

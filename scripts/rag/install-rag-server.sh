@@ -25,9 +25,9 @@ if ! curl -sf http://localhost:6333/healthz > /dev/null; then
 fi
 echo "    Qdrant OK (localhost:6333)"
 
-# 2. Install Thai TrOCR dependencies
-echo "==> Installing Thai TrOCR dependencies..."
-"$PYTHON" -m pip install transformers torch torchvision pillow \
+# 2. Install EasyOCR (Thai + English)
+echo "==> Installing EasyOCR..."
+"$PYTHON" -m pip install easyocr \
     --break-system-packages --quiet
 
 # 3. Install RAG server Python packages
