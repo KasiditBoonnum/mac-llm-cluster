@@ -34,7 +34,7 @@ RAG_TOP_K = 3
 RAG_THRESHOLD = 0.45
 
 app = FastAPI(title="LLM Cluster Gateway")
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 LITELLM_URL = "http://localhost:8083"        # ollama models via LiteLLM
 EXO_URL     = "http://llm-01.local:5678"    # exo direct (managed by LaunchAgent)
@@ -54,7 +54,9 @@ def load_api_keys() -> set:
 
 def verify_key(credentials: HTTPAuthorizationCredentials = Depends(security)):
     keys = load_api_keys()
-    if keys and credentials.credentials not in keys:
+    if not keys:
+        return "anonymous"
+    if credentials is None or credentials.credentials not in keys:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return credentials.credentials
 

@@ -89,7 +89,7 @@ const MODELS = [
 const MODEL_ALIASES = {
   "qwen2.5": "qwen2.5:32b-instruct-q4_K_M",
   "deepseek": "deepseek-coder:33b-instruct-q4_K_M",
-  "qwen3.6": "mlx-community/Qwen3.6-35B-A3B-8bit",
+  "qwen3.6": "exo:Qwen3.6-35B-A3B-8bit",
   "phi4": "phi4:latest",
 };
 
