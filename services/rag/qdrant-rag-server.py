@@ -46,6 +46,40 @@ try:
 except ImportError:
     HAS_CV2 = False
 
+try:
+    from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+    import torch
+    HAS_TROCR = True
+except ImportError:
+    HAS_TROCR = False
+
+_trocr_processor = None
+_trocr_model = None
+
+def _load_trocr():
+    global _trocr_processor, _trocr_model
+    if _trocr_processor is None:
+        _trocr_processor = TrOCRProcessor.from_pretrained('openthaigpt/thai-trocr')
+        _trocr_model = VisionEncoderDecoderModel.from_pretrained('openthaigpt/thai-trocr')
+        device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+        _trocr_model = _trocr_model.to(device)
+        _trocr_model.eval()
+    return _trocr_processor, _trocr_model
+
+def _trocr_batch(crops: list) -> list:
+    """Run TrOCR on a batch of word crops and return decoded strings."""
+    try:
+        processor, model = _load_trocr()
+        device = next(model.parameters()).device
+        pixel_values = processor(
+            images=[c.convert('RGB') for c in crops], return_tensors='pt'
+        ).pixel_values.to(device)
+        with torch.no_grad():
+            ids = model.generate(pixel_values)
+        return processor.batch_decode(ids, skip_special_tokens=True)
+    except Exception:
+        return [''] * len(crops)
+
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
 embedder = SentenceTransformer('BAAI/bge-m3')
@@ -168,23 +202,50 @@ def preprocess_for_ocr(img: Image.Image) -> Image.Image:
 
 
 def ocr_page_with_structure(img) -> str:
-    """OCR a page using word bounding boxes to preserve table column alignment."""
-    img = preprocess_for_ocr(img)
+    """Tesseract for layout + TrOCR on low-confidence word crops."""
+    processed = preprocess_for_ocr(img)
     try:
         data = pytesseract.image_to_data(
-            img, lang="tha+eng",
+            processed, lang="tha+eng",
             config="--psm 3 --oem 3",
             output_type=pytesseract.Output.DICT,
         )
-        lines: dict = {}
+
+        # First pass: collect words and flag low-confidence ones for TrOCR
+        words = []  # (i, conf, text)
+        low_conf_indices = []
+        low_conf_crops = []
+
         for i, word in enumerate(data['text']):
             word = word.strip()
-            if not word or int(data['conf'][i]) < 20:
+            if not word:
                 continue
+            conf = int(data['conf'][i])
+            if conf < 20:
+                continue
+            words.append([i, conf, word])
+            if conf < 60 and HAS_TROCR:
+                x, y, w, h = data['left'][i], data['top'][i], data['width'][i], data['height'][i]
+                pad = 6
+                crop = img.crop((max(0, x - pad), max(0, y - pad),
+                                  x + w + pad, y + h + pad))
+                low_conf_indices.append(len(words) - 1)
+                low_conf_crops.append(crop)
+
+        # Second pass: replace low-confidence words with TrOCR results in one batch
+        if low_conf_crops:
+            trocr_results = _trocr_batch(low_conf_crops)
+            for idx, result in zip(low_conf_indices, trocr_results):
+                if result.strip():
+                    words[idx][2] = result.strip()
+
+        # Reconstruct lines preserving spatial order
+        lines: dict = {}
+        for entry in words:
+            i, _, text = entry
             key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
-            lines.setdefault(key, []).append(
-                (data['left'][i], data['top'][i], word)
-            )
+            lines.setdefault(key, []).append((data['left'][i], data['top'][i], text))
+
         sorted_lines = sorted(lines.values(), key=lambda ws: min(w[1] for w in ws))
         result = '\n'.join(
             ' '.join(w[2] for w in sorted(ws, key=lambda w: w[0]))
@@ -193,7 +254,7 @@ def ocr_page_with_structure(img) -> str:
         return normalize(result)
     except Exception:
         return normalize(pytesseract.image_to_string(
-            img, lang="tha+eng", config="--psm 3 --oem 3"
+            processed, lang="tha+eng", config="--psm 3 --oem 3"
         ))
 
 
