@@ -25,9 +25,9 @@ if ! curl -sf http://localhost:6333/healthz > /dev/null; then
 fi
 echo "    Qdrant OK (localhost:6333)"
 
-# 2. Install EasyOCR (Thai + English)
-echo "==> Installing EasyOCR..."
-"$PYTHON" -m pip install easyocr \
+# 2. Install Surya OCR
+echo "==> Installing Surya OCR..."
+"$PYTHON" -m pip install surya-ocr \
     --break-system-packages --quiet
 
 # 3. Install RAG server Python packages

@@ -33,20 +33,26 @@ except ImportError:
     HAS_DOCX = False
 
 try:
-    import easyocr
+    from surya.ocr import run_ocr
+    from surya.model.detection.segformer import load_model as load_det_model, load_processor as load_det_processor
+    from surya.model.recognition.model import load_model as load_rec_model
+    from surya.model.recognition.processor import load_processor as load_rec_processor
     from PIL import Image
-    import numpy as np
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
 
-_ocr_reader = None
+_surya_models = None
 
-def _load_reader():
-    global _ocr_reader
-    if _ocr_reader is None:
-        _ocr_reader = easyocr.Reader(['th', 'en'], gpu=False)
-    return _ocr_reader
+def _load_surya():
+    global _surya_models
+    if _surya_models is None:
+        det_processor = load_det_processor()
+        det_model = load_det_model()
+        rec_model = load_rec_model()
+        rec_processor = load_rec_processor()
+        _surya_models = (det_model, det_processor, rec_model, rec_processor)
+    return _surya_models
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
@@ -154,28 +160,13 @@ def extract_page_with_tables(page) -> str:
 
 
 def ocr_page_with_structure(img) -> str:
-    """OCR a page using EasyOCR (Thai + English)."""
-    reader = _load_reader()
-    results = reader.readtext(np.array(img.convert('RGB')))
-    if not results:
-        return ''
-    results.sort(key=lambda r: (r[0][0][1], r[0][0][0]))
-    lines, cur_line, cur_y = [], [], None
-    for bbox, text, conf in results:
-        if conf < 0.1 or not text.strip():
-            continue
-        top_y = bbox[0][1]
-        height = max(bbox[2][1] - bbox[0][1], 1)
-        if cur_y is None or abs(top_y - cur_y) <= height * 0.6:
-            cur_line.append((bbox[0][0], text))
-            if cur_y is None:
-                cur_y = top_y
-        else:
-            lines.append(' '.join(w for _, w in sorted(cur_line)))
-            cur_line = [(bbox[0][0], text)]
-            cur_y = top_y
-    if cur_line:
-        lines.append(' '.join(w for _, w in sorted(cur_line)))
+    """OCR a page using Surya (Thai + English)."""
+    det_model, det_processor, rec_model, rec_processor = _load_surya()
+    predictions = run_ocr(
+        [img.convert('RGB')], [['th', 'en']],
+        det_model, det_processor, rec_model, rec_processor
+    )
+    lines = [line.text for line in predictions[0].text_lines if line.text.strip()]
     return normalize('\n'.join(lines))
 
 
