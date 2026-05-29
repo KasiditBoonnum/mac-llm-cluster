@@ -25,10 +25,9 @@ if ! curl -sf http://localhost:6333/healthz > /dev/null; then
 fi
 echo "    Qdrant OK (localhost:6333)"
 
-# 2. Install Surya OCR
-echo "==> Installing Surya OCR..."
-"$PYTHON" -m pip install surya-ocr \
-    --break-system-packages --quiet
+# 2. Install Tesseract OCR with Thai + English language packs
+echo "==> Installing Tesseract OCR..."
+brew install tesseract tesseract-lang --quiet 2>/dev/null || true
 
 # 3. Install RAG server Python packages
 echo "==> Installing RAG server dependencies..."

@@ -33,26 +33,11 @@ except ImportError:
     HAS_DOCX = False
 
 try:
-    from surya.ocr import run_ocr
-    from surya.model.detection.segformer import load_model as load_det_model, load_processor as load_det_processor
-    from surya.model.recognition.model import load_model as load_rec_model
-    from surya.model.recognition.processor import load_processor as load_rec_processor
+    import pytesseract
     from PIL import Image
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
-
-_surya_models = None
-
-def _load_surya():
-    global _surya_models
-    if _surya_models is None:
-        det_processor = load_det_processor()
-        det_model = load_det_model()
-        rec_model = load_rec_model()
-        rec_processor = load_rec_processor()
-        _surya_models = (det_model, det_processor, rec_model, rec_processor)
-    return _surya_models
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
@@ -160,14 +145,32 @@ def extract_page_with_tables(page) -> str:
 
 
 def ocr_page_with_structure(img) -> str:
-    """OCR a page using Surya (Thai + English)."""
-    det_model, det_processor, rec_model, rec_processor = _load_surya()
-    predictions = run_ocr(
-        [img.convert('RGB')], [['th', 'en']],
-        det_model, det_processor, rec_model, rec_processor
-    )
-    lines = [line.text for line in predictions[0].text_lines if line.text.strip()]
-    return normalize('\n'.join(lines))
+    """OCR a page using word bounding boxes to preserve table column alignment."""
+    try:
+        data = pytesseract.image_to_data(
+            img, lang="tha+eng",
+            config="--psm 3 --oem 1",
+            output_type=pytesseract.Output.DICT,
+        )
+        lines: dict = {}
+        for i, word in enumerate(data['text']):
+            word = word.strip()
+            if not word or int(data['conf'][i]) < 20:
+                continue
+            key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
+            lines.setdefault(key, []).append(
+                (data['left'][i], data['top'][i], word)
+            )
+        sorted_lines = sorted(lines.values(), key=lambda ws: min(w[1] for w in ws))
+        result = '\n'.join(
+            ' '.join(w[2] for w in sorted(ws, key=lambda w: w[0]))
+            for ws in sorted_lines
+        )
+        return normalize(result)
+    except Exception:
+        return normalize(pytesseract.image_to_string(
+            img, lang="tha+eng", config="--psm 3 --oem 1"
+        ))
 
 
 def extract_text(content: bytes, filename: str) -> str:
