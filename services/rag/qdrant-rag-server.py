@@ -159,41 +159,15 @@ def extract_page_with_tables(page) -> str:
     return '\n\n'.join(t for _, t in text_parts)
 
 
-def _segment_lines(img: Image.Image, min_height: int = 8) -> list:
-    """Split page image into text line crops using horizontal projection."""
-    gray = img.convert('L')
-    w, h = gray.size
-    data = list(gray.getdata())
-    in_line = False
-    start = 0
-    lines = []
-    for y in range(h):
-        row_avg = sum(data[y * w:(y + 1) * w]) / w
-        if row_avg < 245 and not in_line:
-            start = y
-            in_line = True
-        elif row_avg >= 245 and in_line:
-            if y - start >= min_height:
-                lines.append(img.crop((0, max(0, start - 2), w, min(h, y + 2))))
-            in_line = False
-    if in_line and h - start >= min_height:
-        lines.append(img.crop((0, max(0, start - 2), w, h)))
-    return lines or [img]
-
-
 def ocr_page_with_structure(img) -> str:
     """OCR a page using Thai TrOCR (openthaigpt/thai-trocr)."""
     processor, model = _load_trocr()
     device = next(model.parameters()).device
-    texts = []
-    for line_img in _segment_lines(img):
-        pixel_values = processor(images=line_img.convert('RGB'), return_tensors='pt').pixel_values.to(device)
-        with torch.no_grad():
-            ids = model.generate(pixel_values)
-        text = processor.batch_decode(ids, skip_special_tokens=True)[0].strip()
-        if text:
-            texts.append(text)
-    return normalize('\n'.join(texts))
+    pixel_values = processor(images=img.convert('RGB'), return_tensors='pt').pixel_values.to(device)
+    with torch.no_grad():
+        generated_ids = model.generate(pixel_values)
+    text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    return normalize(text)
 
 
 def extract_text(content: bytes, filename: str) -> str:
