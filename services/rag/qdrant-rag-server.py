@@ -220,16 +220,41 @@ def ocr_page_with_structure(img) -> str:
             if w > 0 and h > 0:
                 word_entries.append((i, x, y, w, h, word.strip()))
 
-        if HAS_TROCR and word_entries:
-            # Read every word crop individually through TrOCR
-            pad = 6
-            final = []
-            for i, x, y, w, h, tess in word_entries:
+        THAI_DIGITS = set('๐๑๒๓๔๕๖๗๘๙')
+
+        def _has_digits(text):
+            return any(c in THAI_DIGITS or c.isdigit() for c in text)
+
+        # Build line map: line_key → list of word indices on that line
+        line_map: dict = {}
+        for idx, (i, x, y, w, h, text) in enumerate(word_entries):
+            key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
+            line_map.setdefault(key, []).append(idx)
+
+        # Flag: low confidence OR contains digits OR is a neighbor of a digit word
+        flagged = set()
+        for idx, (i, x, y, w, h, text) in enumerate(word_entries):
+            if int(data['conf'][i]) < 60 or _has_digits(text):
+                flagged.add(idx)
+                # Also flag immediate neighbors on the same line
+                key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
+                line_indices = sorted(line_map[key])
+                pos = line_indices.index(idx)
+                if pos > 0:
+                    flagged.add(line_indices[pos - 1])
+                if pos < len(line_indices) - 1:
+                    flagged.add(line_indices[pos + 1])
+
+        pad = 6
+        if HAS_TROCR and flagged:
+            word_entries = list(word_entries)
+            for idx in flagged:
+                i, x, y, w, h, tess = word_entries[idx]
                 crop = img.crop((max(0, x - pad), max(0, y - pad), x + w + pad, y + h + pad))
-                trocr = _trocr_read(crop).strip()
-                final.append((i, x, y, trocr if trocr else tess))
-        else:
-            final = [(i, x, y, tess) for i, x, y, w, h, tess in word_entries]
+                result = _trocr_read(crop).strip()
+                word_entries[idx] = (i, x, y, w, h, result if result else tess)
+
+        final = [(i, x, y, tess) for i, x, y, w, h, tess in word_entries]
 
         # Reconstruct lines preserving spatial order
         lines: dict = {}
