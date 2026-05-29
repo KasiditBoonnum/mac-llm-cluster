@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import TYPING_GIF from "../../assets/image/typing-texting.gif";
 
 type Props = {
   text: string;
@@ -61,7 +64,23 @@ export default function MessageBubble({
           }
         `}
       >
-        <div className="whitespace-pre-wrap break-words text-left">{visible}</div>
+        <div className="whitespace-pre-wrap break-words text-left">
+          {(!isUser && animate && (!visible || visible.length === 0)) ? (
+            <div className="w-[120px] h-[40px]">
+              <img src={TYPING_GIF} alt="typing" className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+              code({node, inline, className, children, ...props}){
+                return !inline ? (
+                  <pre className="bg-gray-800 text-white rounded p-2 overflow-auto"><code {...props}>{String(children)}</code></pre>
+                ) : (
+                  <code className="bg-gray-200 rounded px-1">{children}</code>
+                )
+              }
+            }}>{visible}</ReactMarkdown>
+          )}
+        </div>
       </div>
     </div>
   );

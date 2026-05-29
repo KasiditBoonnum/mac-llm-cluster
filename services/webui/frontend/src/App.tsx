@@ -51,7 +51,7 @@ function App() {
   // Send a message: uploads files if any, then call backend /api/chat
   const handleSend = async (text: string, files?: File[], model?: string) => {
     const userMsg: Message = { id: Date.now(), text, sender: "user" };
-    setMessages((m) => [...m, userMsg]);
+    setMessages((m) => [...m, userMsg, { id: 'typing', text: '', sender: 'bot', animate: true } as any]);
 
     try {
       const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
@@ -69,7 +69,8 @@ function App() {
         }
       }
 
-      const payload = { model: model || 'qwen2.5', messages: [{ role: 'user', content: text }], fileIds };
+      const chatId = (activeChat !== null && chats[activeChat]?.id) ? chats[activeChat].id : undefined;
+      const payload = { model: model || 'qwen2.5', messages: [{ role: 'user', content: text }], fileIds, chatId, newChat: activeChat === null };
       const resp = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader }, body: JSON.stringify(payload) });
       const raw = await resp.text();
       let botText = raw;
@@ -81,12 +82,12 @@ function App() {
       }
 
       const botMsg: Message = { id: Date.now() + 1, text: botText, sender: "bot", animate: true };
-      setMessages((m) => [...m, botMsg]);
+      setMessages((m) => [...m.filter((x) => String(x.id) !== 'typing'), botMsg]);
       // refresh history list
       fetchHistory();
     } catch (err) {
       const errMsg: Message = { id: Date.now() + 2, text: "Error: " + String(err), sender: "bot", animate: false };
-      setMessages((m) => [...m, errMsg]);
+      setMessages((m) => [...m.filter((x) => String(x.id) !== 'typing'), errMsg]);
     }
   };
 

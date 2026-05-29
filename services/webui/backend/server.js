@@ -20,9 +20,62 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const upload = multer({ dest: UPLOAD_DIR });
 
-// In-memory auth tokens and histories
+// In-memory auth tokens (tokens still in-memory)
 const tokens = new Map(); // token -> username
-const histories = new Map(); // username -> [{ id, title, messages }]
+
+// Persist chat histories to disk under frontend/src/components/sidebar/ChatLog
+const CHATLOG_DIR = path.join(process.cwd(), "frontend", "src", "components", "sidebar", "ChatLog");
+if (!fs.existsSync(CHATLOG_DIR)) fs.mkdirSync(CHATLOG_DIR, { recursive: true });
+
+function chatFilePath(id) {
+  return path.join(CHATLOG_DIR, `${id}.json`);
+}
+
+function saveChatToFile(chat, username) {
+  const id = chat.id || uuidv4();
+  const payload = { id, username, title: chat.title || 'New chat', messages: chat.messages || [] };
+  fs.writeFileSync(chatFilePath(id), JSON.stringify(payload, null, 2), 'utf-8');
+  return payload;
+}
+
+function loadChatFromFile(id) {
+  try {
+    const raw = fs.readFileSync(chatFilePath(id), 'utf-8');
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+
+function listChatsForUser(username) {
+  const files = fs.readdirSync(CHATLOG_DIR).filter((f) => f.endsWith('.json'));
+  const out = [];
+  for (const f of files) {
+    try {
+      const raw = fs.readFileSync(path.join(CHATLOG_DIR, f), 'utf-8');
+      const data = JSON.parse(raw);
+      if ((data.username || 'guest') === username) {
+        out.push({ id: data.id, title: data.title || 'New chat' });
+      }
+    } catch (e) {
+      // ignore broken files
+    }
+  }
+  // sort by filename mod time (approx)
+  return out;
+}
+
+function deleteChatFile(id, username) {
+  const p = chatFilePath(id);
+  if (!fs.existsSync(p)) return false;
+  try {
+    const raw = fs.readFileSync(p, 'utf-8');
+    const data = JSON.parse(raw);
+    if ((data.username || 'guest') !== username) return false;
+    fs.unlinkSync(p);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 // Simple models list
 const MODELS = [
@@ -45,7 +98,6 @@ app.post("/api/login", (req, res) => {
   if (username === "admin" && password === "admin") {
     const token = uuidv4();
     tokens.set(token, username);
-    if (!histories.has(username)) histories.set(username, []);
     return res.json({ token });
   }
   res.status(401).json({ error: "Invalid credentials" });
@@ -100,7 +152,7 @@ app.use("/uploads", express.static(UPLOAD_DIR));
 app.get("/api/history", (req, res) => {
   const auth = (req.headers.authorization || "").replace(/^Bearer\s*/, "");
   const user = tokens.get(auth) || "guest";
-  const list = (histories.get(user) || []).map((h) => ({ id: h.id, title: h.title }));
+  const list = listChatsForUser(user);
   res.json(list);
 });
 
@@ -108,9 +160,8 @@ app.get("/api/history/:id", (req, res) => {
   const auth = (req.headers.authorization || "").replace(/^Bearer\s*/, "");
   const user = tokens.get(auth) || "guest";
   const id = req.params.id;
-  const hs = histories.get(user) || [];
-  const found = hs.find((h) => h.id === id);
-  if (!found) return res.status(404).json({ error: "Not found" });
+  const found = loadChatFromFile(id);
+  if (!found || (found.username || 'guest') !== user) return res.status(404).json({ error: "Not found" });
   res.json(found.messages || []);
 });
 
@@ -118,13 +169,8 @@ app.delete("/api/history/:id", (req, res) => {
   const auth = (req.headers.authorization || "").replace(/^Bearer\s*/, "");
   const user = tokens.get(auth) || "guest";
   const id = req.params.id;
-  const hs = histories.get(user) || [];
-  const idx = hs.findIndex((h) => h.id === id);
-  if (idx >= 0) {
-    hs.splice(idx, 1);
-    histories.set(user, hs);
-    return res.json({ ok: true });
-  }
+  const ok = deleteChatFile(id, user);
+  if (ok) return res.json({ ok: true });
   res.status(404).json({ error: "Not found" });
 });
 
@@ -158,23 +204,55 @@ app.post("/api/chat", async (req, res) => {
     const r = await fetch(target, { method: "POST", headers, body: JSON.stringify(body) });
     const data = await r.json();
 
-    // Save to in-memory history if authenticated
+    // Persist chat to disk in CHATLOG_DIR
     const auth = (req.headers.authorization || "").replace(/^Bearer\s*/, "");
     const user = tokens.get(auth) || "guest";
-    if (!histories.has(user)) histories.set(user, []);
-    const hs = histories.get(user);
-    // Ensure a chat exists for this session: use today's id or create new
-    let chat = hs.length ? hs[hs.length - 1] : null;
-    if (!chat || (messages && messages.length && messages[0].role === "user" && messages[0].content)) {
-      // Append messages to current chat or create new
-      if (!chat) {
-        chat = { id: uuidv4(), title: messages[0]?.content?.slice(0, 80) || "New chat", messages: [] };
-        hs.push(chat);
+
+    // Determine which chat to append to. Frontend may send { chatId, newChat }
+    const chatId = payload.chatId;
+    const newChat = payload.newChat;
+
+    if (chatId) {
+      const existing = loadChatFromFile(chatId);
+      if (existing && (existing.username || 'guest') === user) {
+        // append user messages
+        existing.messages.push(...messages.map((m) => ({ id: Date.now() + Math.random(), text: m.content || m, sender: m.role === 'user' ? 'user' : 'bot' })));
+        const botText = data?.choices?.[0]?.message?.content || JSON.stringify(data);
+        existing.messages.push({ id: Date.now() + Math.random() + 1, text: botText, sender: 'bot' });
+        saveChatToFile(existing, user);
+      } else {
+        // chatId not found or owned by other user; create new
+        const chat = { id: uuidv4(), title: messages[0]?.content?.slice(0, 80) || 'New chat', messages: [] };
+        chat.messages.push(...messages.map((m) => ({ id: Date.now() + Math.random(), text: m.content || m, sender: m.role === 'user' ? 'user' : 'bot' })));
+        const botText = data?.choices?.[0]?.message?.content || JSON.stringify(data);
+        chat.messages.push({ id: Date.now() + Math.random() + 1, text: botText, sender: 'bot' });
+        saveChatToFile(chat, user);
       }
-      // push user and bot
-      chat.messages.push(...messages.map((m) => ({ id: Date.now() + Math.random(), text: m.content || m, sender: m.role === "user" ? "user" : "bot" })));
+    } else if (newChat) {
+      const chat = { id: uuidv4(), title: messages[0]?.content?.slice(0, 80) || 'New chat', messages: [] };
+      chat.messages.push(...messages.map((m) => ({ id: Date.now() + Math.random(), text: m.content || m, sender: m.role === 'user' ? 'user' : 'bot' })));
       const botText = data?.choices?.[0]?.message?.content || JSON.stringify(data);
-      chat.messages.push({ id: Date.now() + Math.random() + 1, text: botText, sender: "bot" });
+      chat.messages.push({ id: Date.now() + Math.random() + 1, text: botText, sender: 'bot' });
+      saveChatToFile(chat, user);
+    } else {
+      // append to last chat of user if exists
+      const list = listChatsForUser(user);
+      if (list.length > 0) {
+        const last = list[list.length - 1];
+        const existing = loadChatFromFile(last.id);
+        if (existing) {
+          existing.messages.push(...messages.map((m) => ({ id: Date.now() + Math.random(), text: m.content || m, sender: m.role === 'user' ? 'user' : 'bot' })));
+          const botText = data?.choices?.[0]?.message?.content || JSON.stringify(data);
+          existing.messages.push({ id: Date.now() + Math.random() + 1, text: botText, sender: 'bot' });
+          saveChatToFile(existing, user);
+        }
+      } else {
+        const chat = { id: uuidv4(), title: messages[0]?.content?.slice(0, 80) || 'New chat', messages: [] };
+        chat.messages.push(...messages.map((m) => ({ id: Date.now() + Math.random(), text: m.content || m, sender: m.role === 'user' ? 'user' : 'bot' })));
+        const botText = data?.choices?.[0]?.message?.content || JSON.stringify(data);
+        chat.messages.push({ id: Date.now() + Math.random() + 1, text: botText, sender: 'bot' });
+        saveChatToFile(chat, user);
+      }
     }
 
     res.status(r.status).json(data);
