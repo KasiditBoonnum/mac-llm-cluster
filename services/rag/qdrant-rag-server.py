@@ -33,11 +33,26 @@ except ImportError:
     HAS_DOCX = False
 
 try:
-    import pytesseract
+    from transformers import TrOCRProcessor, VisionEncoderDecoderModel
     from PIL import Image
+    import torch
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
+
+_trocr_processor = None
+_trocr_model = None
+
+def _load_trocr():
+    global _trocr_processor, _trocr_model
+    if _trocr_processor is None:
+        model_id = 'openthaigpt/thai-trocr'
+        _trocr_processor = TrOCRProcessor.from_pretrained(model_id)
+        _trocr_model = VisionEncoderDecoderModel.from_pretrained(model_id)
+        device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+        _trocr_model = _trocr_model.to(device)
+        _trocr_model.eval()
+    return _trocr_processor, _trocr_model
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
@@ -144,33 +159,41 @@ def extract_page_with_tables(page) -> str:
     return '\n\n'.join(t for _, t in text_parts)
 
 
+def _segment_lines(img: Image.Image, min_height: int = 8) -> list:
+    """Split page image into text line crops using horizontal projection."""
+    gray = img.convert('L')
+    w, h = gray.size
+    data = list(gray.getdata())
+    in_line = False
+    start = 0
+    lines = []
+    for y in range(h):
+        row_avg = sum(data[y * w:(y + 1) * w]) / w
+        if row_avg < 245 and not in_line:
+            start = y
+            in_line = True
+        elif row_avg >= 245 and in_line:
+            if y - start >= min_height:
+                lines.append(img.crop((0, max(0, start - 2), w, min(h, y + 2))))
+            in_line = False
+    if in_line and h - start >= min_height:
+        lines.append(img.crop((0, max(0, start - 2), w, h)))
+    return lines or [img]
+
+
 def ocr_page_with_structure(img) -> str:
-    """OCR a page using word bounding boxes to preserve table column alignment."""
-    try:
-        data = pytesseract.image_to_data(
-            img, lang="tha+eng",
-            config="--psm 3 --oem 1",
-            output_type=pytesseract.Output.DICT,
-        )
-        lines: dict = {}
-        for i, word in enumerate(data['text']):
-            word = word.strip()
-            if not word or int(data['conf'][i]) < 20:
-                continue
-            key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
-            lines.setdefault(key, []).append(
-                (data['left'][i], data['top'][i], word)
-            )
-        sorted_lines = sorted(lines.values(), key=lambda ws: min(w[1] for w in ws))
-        result = '\n'.join(
-            ' '.join(w[2] for w in sorted(ws, key=lambda w: w[0]))
-            for ws in sorted_lines
-        )
-        return normalize(result)
-    except Exception:
-        return normalize(pytesseract.image_to_string(
-            img, lang="tha+eng", config="--psm 3 --oem 1"
-        ))
+    """OCR a page using Thai TrOCR (openthaigpt/thai-trocr)."""
+    processor, model = _load_trocr()
+    device = next(model.parameters()).device
+    texts = []
+    for line_img in _segment_lines(img):
+        pixel_values = processor(images=line_img.convert('RGB'), return_tensors='pt').pixel_values.to(device)
+        with torch.no_grad():
+            ids = model.generate(pixel_values)
+        text = processor.batch_decode(ids, skip_special_tokens=True)[0].strip()
+        if text:
+            texts.append(text)
+    return normalize('\n'.join(texts))
 
 
 def extract_text(content: bytes, filename: str) -> str:
@@ -852,6 +875,7 @@ tbody tr:last-child td { border-bottom: none; }
       <div id="search-out"></div>
     </div>
   </div>
+
 
 </div>
 
