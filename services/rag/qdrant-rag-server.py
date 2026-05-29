@@ -66,19 +66,19 @@ def _load_trocr():
         _trocr_model.eval()
     return _trocr_processor, _trocr_model
 
-def _trocr_batch(crops: list) -> list:
-    """Run TrOCR on a batch of word crops and return decoded strings."""
+def _trocr_read(crop) -> str:
+    """Run TrOCR on a single word crop."""
     try:
         processor, model = _load_trocr()
         device = next(model.parameters()).device
         pixel_values = processor(
-            images=[c.convert('RGB') for c in crops], return_tensors='pt'
+            images=crop.convert('RGB'), return_tensors='pt'
         ).pixel_values.to(device)
         with torch.no_grad():
             ids = model.generate(pixel_values)
-        return processor.batch_decode(ids, skip_special_tokens=True)
+        return processor.batch_decode(ids, skip_special_tokens=True)[0]
     except Exception:
-        return [''] * len(crops)
+        return ''
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
@@ -202,7 +202,7 @@ def preprocess_for_ocr(img: Image.Image) -> Image.Image:
 
 
 def ocr_page_with_structure(img) -> str:
-    """Tesseract for layout + TrOCR on low-confidence word crops."""
+    """Tesseract for word layout detection + TrOCR to read every word crop."""
     processed = preprocess_for_ocr(img)
     try:
         data = pytesseract.image_to_data(
@@ -211,47 +211,37 @@ def ocr_page_with_structure(img) -> str:
             output_type=pytesseract.Output.DICT,
         )
 
-        # First pass: collect words and flag low-confidence ones for TrOCR
-        words = []  # (i, conf, text)
-        low_conf_indices = []
-        low_conf_crops = []
-
+        # Collect all valid word bounding boxes
+        word_entries = []
         for i, word in enumerate(data['text']):
-            word = word.strip()
-            if not word:
+            if not word.strip() or int(data['conf'][i]) < 20:
                 continue
-            conf = int(data['conf'][i])
-            if conf < 20:
-                continue
-            words.append([i, conf, word])
-            if conf < 60 and HAS_TROCR:
-                x, y, w, h = data['left'][i], data['top'][i], data['width'][i], data['height'][i]
-                pad = 6
-                crop = img.crop((max(0, x - pad), max(0, y - pad),
-                                  x + w + pad, y + h + pad))
-                low_conf_indices.append(len(words) - 1)
-                low_conf_crops.append(crop)
+            x, y, w, h = data['left'][i], data['top'][i], data['width'][i], data['height'][i]
+            if w > 0 and h > 0:
+                word_entries.append((i, x, y, w, h, word.strip()))
 
-        # Second pass: replace low-confidence words with TrOCR results in one batch
-        if low_conf_crops:
-            trocr_results = _trocr_batch(low_conf_crops)
-            for idx, result in zip(low_conf_indices, trocr_results):
-                if result.strip():
-                    words[idx][2] = result.strip()
+        if HAS_TROCR and word_entries:
+            # Read every word crop individually through TrOCR
+            pad = 6
+            final = []
+            for i, x, y, w, h, tess in word_entries:
+                crop = img.crop((max(0, x - pad), max(0, y - pad), x + w + pad, y + h + pad))
+                trocr = _trocr_read(crop).strip()
+                final.append((i, x, y, trocr if trocr else tess))
+        else:
+            final = [(i, x, y, tess) for i, x, y, w, h, tess in word_entries]
 
         # Reconstruct lines preserving spatial order
         lines: dict = {}
-        for entry in words:
-            i, _, text = entry
+        for i, x, y, text in final:
             key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
-            lines.setdefault(key, []).append((data['left'][i], data['top'][i], text))
+            lines.setdefault(key, []).append((x, y, text))
 
         sorted_lines = sorted(lines.values(), key=lambda ws: min(w[1] for w in ws))
-        result = '\n'.join(
+        return normalize('\n'.join(
             ' '.join(w[2] for w in sorted(ws, key=lambda w: w[0]))
             for ws in sorted_lines
-        )
-        return normalize(result)
+        ))
     except Exception:
         return normalize(pytesseract.image_to_string(
             processed, lang="tha+eng", config="--psm 3 --oem 3"
