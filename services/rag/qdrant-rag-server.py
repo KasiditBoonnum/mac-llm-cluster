@@ -34,10 +34,17 @@ except ImportError:
 
 try:
     import pytesseract
-    from PIL import Image
+    from PIL import Image, ImageEnhance, ImageFilter
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
+
+try:
+    import cv2
+    import numpy as np
+    HAS_CV2 = True
+except ImportError:
+    HAS_CV2 = False
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
@@ -144,12 +151,29 @@ def extract_page_with_tables(page) -> str:
     return '\n\n'.join(t for _, t in text_parts)
 
 
+def preprocess_for_ocr(img: Image.Image) -> Image.Image:
+    if HAS_CV2:
+        arr = np.array(img.convert('L'))
+        arr = cv2.fastNlMeansDenoising(arr, h=10)
+        arr = cv2.adaptiveThreshold(
+            arr, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+        )
+        return Image.fromarray(arr).convert('RGB')
+    # Pillow fallback
+    img = img.convert('L')
+    img = ImageEnhance.Contrast(img).enhance(2.0)
+    img = img.filter(ImageFilter.SHARPEN)
+    img = img.point(lambda x: 0 if x < 140 else 255)
+    return img.convert('RGB')
+
+
 def ocr_page_with_structure(img) -> str:
     """OCR a page using word bounding boxes to preserve table column alignment."""
+    img = preprocess_for_ocr(img)
     try:
         data = pytesseract.image_to_data(
             img, lang="tha+eng",
-            config="--psm 3 --oem 1",
+            config="--psm 3 --oem 3",
             output_type=pytesseract.Output.DICT,
         )
         lines: dict = {}
@@ -169,7 +193,7 @@ def ocr_page_with_structure(img) -> str:
         return normalize(result)
     except Exception:
         return normalize(pytesseract.image_to_string(
-            img, lang="tha+eng", config="--psm 3 --oem 1"
+            img, lang="tha+eng", config="--psm 3 --oem 3"
         ))
 
 
@@ -185,7 +209,7 @@ def extract_text(content: bytes, filename: str) -> str:
         if HAS_OCR:
             ocr_pages = []
             for page in doc:
-                pix = page.get_pixmap(dpi=300)
+                pix = page.get_pixmap(dpi=400)
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 ocr_pages.append(ocr_page_with_structure(img))
             return '\n\n'.join(t for t in ocr_pages if t.strip())
