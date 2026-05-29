@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import TYPING_GIF from "../../assets/image/loading.gif";
+import TYPING_GIF from "../../assets/image/loadingV2.gif";
 
 type Props = {
   text: string;
