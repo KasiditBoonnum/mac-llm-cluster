@@ -34,51 +34,10 @@ except ImportError:
 
 try:
     import pytesseract
-    from PIL import Image, ImageEnhance, ImageFilter
+    from PIL import Image
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
-
-try:
-    import cv2
-    import numpy as np
-    HAS_CV2 = True
-except ImportError:
-    HAS_CV2 = False
-
-try:
-    from transformers import TrOCRProcessor, VisionEncoderDecoderModel
-    import torch
-    HAS_TROCR = True
-except ImportError:
-    HAS_TROCR = False
-
-_trocr_processor = None
-_trocr_model = None
-
-def _load_trocr():
-    global _trocr_processor, _trocr_model
-    if _trocr_processor is None:
-        _trocr_processor = TrOCRProcessor.from_pretrained('openthaigpt/thai-trocr')
-        _trocr_model = VisionEncoderDecoderModel.from_pretrained('openthaigpt/thai-trocr')
-        device = 'mps' if torch.backends.mps.is_available() else 'cpu'
-        _trocr_model = _trocr_model.to(device)
-        _trocr_model.eval()
-    return _trocr_processor, _trocr_model
-
-def _trocr_read(crop) -> str:
-    """Run TrOCR on a single word crop."""
-    try:
-        processor, model = _load_trocr()
-        device = next(model.parameters()).device
-        pixel_values = processor(
-            images=crop.convert('RGB'), return_tensors='pt'
-        ).pixel_values.to(device)
-        with torch.no_grad():
-            ids = model.generate(pixel_values)
-        return processor.batch_decode(ids, skip_special_tokens=True)[0]
-    except Exception:
-        return ''
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
@@ -185,91 +144,32 @@ def extract_page_with_tables(page) -> str:
     return '\n\n'.join(t for _, t in text_parts)
 
 
-def preprocess_for_ocr(img: Image.Image) -> Image.Image:
-    if HAS_CV2:
-        arr = np.array(img.convert('L'))
-        arr = cv2.fastNlMeansDenoising(arr, h=10)
-        arr = cv2.adaptiveThreshold(
-            arr, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-        )
-        return Image.fromarray(arr).convert('RGB')
-    # Pillow fallback
-    img = img.convert('L')
-    img = ImageEnhance.Contrast(img).enhance(2.0)
-    img = img.filter(ImageFilter.SHARPEN)
-    img = img.point(lambda x: 0 if x < 140 else 255)
-    return img.convert('RGB')
-
-
 def ocr_page_with_structure(img) -> str:
-    """Tesseract for word layout detection + TrOCR to read every word crop."""
-    processed = preprocess_for_ocr(img)
+    """OCR a page using word bounding boxes to preserve table column alignment."""
     try:
         data = pytesseract.image_to_data(
-            processed, lang="tha+eng",
-            config="--psm 3 --oem 3",
+            img, lang="tha+eng",
+            config="--psm 3 --oem 1",
             output_type=pytesseract.Output.DICT,
         )
-
-        # Collect all valid word bounding boxes
-        word_entries = []
-        for i, word in enumerate(data['text']):
-            if not word.strip() or int(data['conf'][i]) < 20:
-                continue
-            x, y, w, h = data['left'][i], data['top'][i], data['width'][i], data['height'][i]
-            if w > 0 and h > 0:
-                word_entries.append((i, x, y, w, h, word.strip()))
-
-        THAI_DIGITS = set('๐๑๒๓๔๕๖๗๘๙')
-
-        def _has_digits(text):
-            return any(c in THAI_DIGITS or c.isdigit() for c in text)
-
-        # Build line map: line_key → list of word indices on that line
-        line_map: dict = {}
-        for idx, (i, x, y, w, h, text) in enumerate(word_entries):
-            key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
-            line_map.setdefault(key, []).append(idx)
-
-        # Flag: low confidence OR contains digits OR is a neighbor of a digit word
-        flagged = set()
-        for idx, (i, x, y, w, h, text) in enumerate(word_entries):
-            if int(data['conf'][i]) < 60 or _has_digits(text):
-                flagged.add(idx)
-                # Also flag immediate neighbors on the same line
-                key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
-                line_indices = sorted(line_map[key])
-                pos = line_indices.index(idx)
-                if pos > 0:
-                    flagged.add(line_indices[pos - 1])
-                if pos < len(line_indices) - 1:
-                    flagged.add(line_indices[pos + 1])
-
-        pad = 6
-        if HAS_TROCR and flagged:
-            word_entries = list(word_entries)
-            for idx in flagged:
-                i, x, y, w, h, tess = word_entries[idx]
-                crop = img.crop((max(0, x - pad), max(0, y - pad), x + w + pad, y + h + pad))
-                result = _trocr_read(crop).strip()
-                word_entries[idx] = (i, x, y, w, h, result if result else tess)
-
-        final = [(i, x, y, tess) for i, x, y, w, h, tess in word_entries]
-
-        # Reconstruct lines preserving spatial order
         lines: dict = {}
-        for i, x, y, text in final:
+        for i, word in enumerate(data['text']):
+            word = word.strip()
+            if not word or int(data['conf'][i]) < 20:
+                continue
             key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
-            lines.setdefault(key, []).append((x, y, text))
-
+            lines.setdefault(key, []).append(
+                (data['left'][i], data['top'][i], word)
+            )
         sorted_lines = sorted(lines.values(), key=lambda ws: min(w[1] for w in ws))
-        return normalize('\n'.join(
+        result = '\n'.join(
             ' '.join(w[2] for w in sorted(ws, key=lambda w: w[0]))
             for ws in sorted_lines
-        ))
+        )
+        return normalize(result)
     except Exception:
         return normalize(pytesseract.image_to_string(
-            processed, lang="tha+eng", config="--psm 3 --oem 3"
+            img, lang="tha+eng", config="--psm 3 --oem 1"
         ))
 
 
@@ -285,7 +185,7 @@ def extract_text(content: bytes, filename: str) -> str:
         if HAS_OCR:
             ocr_pages = []
             for page in doc:
-                pix = page.get_pixmap(dpi=400)
+                pix = page.get_pixmap(dpi=300)
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 ocr_pages.append(ocr_page_with_structure(img))
             return '\n\n'.join(t for t in ocr_pages if t.strip())
