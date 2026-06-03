@@ -2,7 +2,7 @@
 """QDRANT RAG Server with Admin UI"""
 
 from fastapi import FastAPI, UploadFile, HTTPException, File, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from pydantic import BaseModel
@@ -19,7 +19,10 @@ import io
 import re
 import datetime
 import time
+import threading
+import asyncio
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 
 try:
     import fitz  # PyMuPDF
@@ -62,16 +65,19 @@ Describe the image's main elements (people, objects, text), note any contextual 
 
 _typhoon_processor = None
 _typhoon_model = None
+_typhoon_lock = threading.Lock()
+_ocr_executor = ThreadPoolExecutor(max_workers=1)
 
 def _load_typhoon():
     global _typhoon_processor, _typhoon_model
-    if _typhoon_processor is None:
-        model_id = 'scb10x/typhoon-ocr1.5-2b'
-        _typhoon_model = Qwen3VLForConditionalGeneration.from_pretrained(
-            model_id, dtype='auto', device_map='auto'
-        )
-        _typhoon_processor = AutoProcessor.from_pretrained(model_id)
-        _typhoon_model.eval()
+    with _typhoon_lock:
+        if _typhoon_processor is None:
+            model_id = 'scb10x/typhoon-ocr1.5-2b'
+            _typhoon_model = Qwen3VLForConditionalGeneration.from_pretrained(
+                model_id, dtype='auto', device_map='auto'
+            )
+            _typhoon_processor = AutoProcessor.from_pretrained(model_id)
+            _typhoon_model.eval()
     return _typhoon_processor, _typhoon_model
 
 def _resize_for_typhoon(img: Image.Image, max_size: int = 1800) -> Image.Image:
@@ -91,8 +97,8 @@ FONTS_DIR.mkdir(exist_ok=True)
 app.mount("/fonts", StaticFiles(directory=FONTS_DIR), name="fonts")
 
 COLLECTION = "documents"
-CHUNK_SIZE = 800
-CHUNK_OVERLAP = 100
+CHUNK_SIZE = 2000
+CHUNK_OVERLAP = 200
 
 VECTOR_SIZE = len(embedder.encode("test").tolist())
 
@@ -230,6 +236,8 @@ def ocr_page_with_structure(img) -> str:
     result = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )[0]
+    if hasattr(torch, 'mps') and torch.backends.mps.is_available():
+        torch.mps.empty_cache()
     return normalize(result)
 
 
@@ -266,8 +274,31 @@ def extract_text(content: bytes, filename: str) -> str:
     return normalize(content.decode('utf-8', errors='ignore'))
 
 
+def _split_html_table(table_html: str) -> list[str]:
+    """Split an HTML table into chunks at row boundaries."""
+    rows = re.findall(r'<tr>.*?</tr>', table_html, re.DOTALL | re.IGNORECASE)
+    if not rows:
+        return [table_html]
+    chunks: list[str] = []
+    cur: list[str] = []
+    cur_len = 0
+    for row in rows:
+        row_len = len(row)
+        if cur_len + row_len > CHUNK_SIZE and cur:
+            chunks.append('<table>' + ''.join(cur) + '</table>')
+            cur = []
+            cur_len = 0
+        cur.append(row)
+        cur_len += row_len
+    if cur:
+        chunks.append('<table>' + ''.join(cur) + '</table>')
+    return chunks
+
+
 def chunk_text(text: str) -> list[str]:
-    """Chunk text into segments; keeps markdown table headers with their data rows."""
+    """Chunk text; keeps markdown tables intact and splits HTML tables at row boundaries."""
+    # normalise HTML table whitespace so regex can find row boundaries
+    text = re.sub(r'</tr>\s*<tr>', '</tr><tr>', text)
     sections = re.split(r'\n{2,}', text)
     chunks: list[str] = []
     pending = ''
@@ -287,13 +318,22 @@ def chunk_text(text: str) -> list[str]:
         stripped = section.strip()
         if not stripped:
             continue
+
+        # HTML table
+        if re.search(r'<table', stripped, re.IGNORECASE):
+            flush_pending()
+            for tbl_chunk in _split_html_table(stripped):
+                chunks.append(tbl_chunk)
+            continue
+
+        # Markdown table
         lines = stripped.split('\n')
-        is_table = (
+        is_md_table = (
             len(lines) >= 2
             and lines[0].startswith('|')
             and bool(re.match(r'^[\|\- :]+$', lines[1]))
         )
-        if is_table:
+        if is_md_table:
             flush_pending()
             header = '\n'.join(lines[:2])
             data_rows = lines[2:]
@@ -331,7 +371,8 @@ async def admin_ui():
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
     content = await file.read()
-    text = extract_text(content, file.filename)
+    loop = asyncio.get_event_loop()
+    text = await loop.run_in_executor(_ocr_executor, extract_text, content, file.filename)
     chunks = chunk_text(text)
     if not chunks:
         raise HTTPException(400, "No text could be extracted from this file")
@@ -386,6 +427,37 @@ async def delete_all_documents():
         vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
     )
     return {"status": "deleted_all"}
+
+
+@app.get("/documents/chunks")
+async def download_chunks(filename: str = Query(...)):
+    records = []
+    offset = None
+    while True:
+        batch, next_offset = qdrant.scroll(
+            collection_name=COLLECTION,
+            scroll_filter=Filter(must=[FieldCondition(key="filename", match=MatchValue(value=filename))]),
+            offset=offset,
+            limit=1000,
+            with_payload=True,
+            with_vectors=False,
+        )
+        records.extend(batch)
+        if next_offset is None:
+            break
+        offset = next_offset
+    records.sort(key=lambda r: r.payload.get("chunk", 0))
+    lines = []
+    for r in records:
+        idx = r.payload.get("chunk", "?")
+        text = r.payload.get("text", "")
+        lines.append(f"=== Chunk {idx} ===\n{text}")
+    content = "\n\n".join(lines)
+    safe_name = re.sub(r'[^\w.\-]', '_', filename)
+    return PlainTextResponse(
+        content=content,
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}.chunks.txt"'},
+    )
 
 
 @app.delete("/documents/by-filename")
@@ -716,6 +788,14 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 5px 13px; font-size: 15px;
 }
 .btn-del:hover:not(:disabled) { background: var(--red-dim); border-color: var(--red); }
+.btn-dl {
+  background: transparent;
+  border: 1px solid rgba(99,179,237,0.35);
+  color: #63b3ed;
+  padding: 5px 13px; font-size: 15px;
+  text-decoration: none; display: inline-block;
+}
+.btn-dl:hover { background: rgba(99,179,237,0.1); border-color: #63b3ed; }
 
 /* ── Search ── */
 .search-row { display: flex; gap: 10px; margin-bottom: 18px; }
@@ -986,7 +1066,7 @@ function esc(s) {
 }
 function toast(msg, type) {
   var t = document.getElementById('toast');
-  t.textContent = msg;
+  t.innerHTML = msg;
   t.className = 'toast ' + (type || 'success') + ' show';
   clearTimeout(t._t);
   t._t = setTimeout(function() { t.classList.remove('show'); }, 3500);
@@ -1055,7 +1135,10 @@ function renderTable() {
       '<td class="td-date">' + fmtSize(doc.file_size) + '</td>' +
       '<td class="td-chunks">' + doc.chunks.toLocaleString() + '</td>' +
       '<td class="td-date">' + date + '</td>' +
-      '<td><button class="btn btn-del" data-filename="' + esc(doc.filename) + '">Delete</button></td>' +
+      '<td>' +
+        '<a class="btn btn-dl" href="/documents/chunks?filename=' + encodeURIComponent(doc.filename) + '" download>Chunks</a> ' +
+        '<button class="btn btn-del" data-filename="' + esc(doc.filename) + '">Delete</button>' +
+      '</td>' +
       '</tr>';
   }).join('');
   pagination.style.display = totalPages > 1 ? 'flex' : 'none';
