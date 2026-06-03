@@ -33,12 +33,31 @@ except ImportError:
     HAS_DOCX = False
 
 try:
-    from transformers import AutoProcessor, AutoModelForCausalLM
+    from transformers import AutoModelForImageTextToText, AutoProcessor
     from PIL import Image
     import torch
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
+
+TYPHOON_PROMPT = """Extract all text from the image.
+
+Instructions:
+- Only return the clean Markdown.
+- Do not include any explanation or extra text.
+- You must include all information on the page.
+
+Formatting Rules:
+- Tables: Render tables using <table>...</table> in clean HTML format.
+- Equations: Render equations using LaTeX syntax with inline ($...$) and block ($$...$$).
+- Images/Charts/Diagrams: Wrap any clearly defined visual areas (e.g. charts, diagrams, pictures) in:
+
+<figure>
+Describe the image's main elements (people, objects, text), note any contextual clues (place, event, culture), mention visible text and its meaning, provide deeper analysis when relevant (especially for financial charts, graphs, or documents), comment on style or architecture if relevant, then give a concise overall summary. Describe in Thai.
+</figure>
+
+- Page Numbers: Wrap page numbers in <page_number>...</page_number> (e.g., <page_number>14</page_number>).
+- Checkboxes: Use ☐ for unchecked and ☑ for checked boxes."""
 
 _typhoon_processor = None
 _typhoon_model = None
@@ -46,22 +65,22 @@ _typhoon_model = None
 def _load_typhoon():
     global _typhoon_processor, _typhoon_model
     if _typhoon_processor is None:
-        model_id = 'typhoon-ai/typhoon-ocr1.5-2b'
-        _typhoon_processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
-        _typhoon_model = AutoModelForCausalLM.from_pretrained(
-            model_id, torch_dtype=torch.float16, trust_remote_code=True
+        model_id = 'scb10x/typhoon-ocr1.5-2b'
+        _typhoon_model = AutoModelForImageTextToText.from_pretrained(
+            model_id, dtype='auto', device_map='auto'
         )
-        device = 'mps' if torch.backends.mps.is_available() else 'cpu'
-        _typhoon_model = _typhoon_model.to(device)
+        _typhoon_processor = AutoProcessor.from_pretrained(model_id)
         _typhoon_model.eval()
     return _typhoon_processor, _typhoon_model
 
-def _resize_for_typhoon(img: Image.Image, max_dim: int = 1800) -> Image.Image:
+def _resize_for_typhoon(img: Image.Image, max_size: int = 1800) -> Image.Image:
     w, h = img.size
-    if max(w, h) <= max_dim:
-        return img
-    scale = max_dim / max(w, h)
-    return img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+    if w > max_size or h > max_size:
+        if w >= h:
+            return img.resize((max_size, int(h * max_size / w)), Image.Resampling.LANCZOS)
+        else:
+            return img.resize((int(w * max_size / h), max_size), Image.Resampling.LANCZOS)
+    return img
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
@@ -169,29 +188,34 @@ def extract_page_with_tables(page) -> str:
 
 
 def ocr_page_with_structure(img) -> str:
-    """OCR using Typhoon OCR 1.5 (typhoon-ai/typhoon-ocr1.5-2b)."""
+    """OCR using Typhoon OCR 1.5 (scb10x/typhoon-ocr1.5-2b)."""
     processor, model = _load_typhoon()
     img_input = _resize_for_typhoon(img.convert('RGB'))
     messages = [
         {
             "role": "user",
             "content": [
-                {"type": "image"},
-                {"type": "text", "text": (
-                    "Read all text from this document image. "
-                    "Preserve the original layout. "
-                    "For tables output in markdown format. "
-                    "Output only the extracted text."
-                )},
+                {"type": "image", "image": img_input},
+                {"type": "text", "text": TYPHOON_PROMPT},
             ],
         }
     ]
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    inputs = processor(text=[text], images=[img_input], return_tensors="pt").to(model.device)
+    inputs = processor.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_dict=True,
+        return_tensors="pt",
+    )
+    inputs = inputs.to(model.device)
     with torch.no_grad():
-        generated_ids = model.generate(**inputs, max_new_tokens=4096)
-    trimmed = generated_ids[:, inputs['input_ids'].shape[1]:]
-    result = processor.batch_decode(trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+        generated_ids = model.generate(**inputs, max_new_tokens=10000)
+    trimmed = [
+        out[len(inp):] for inp, out in zip(inputs.input_ids, generated_ids)
+    ]
+    result = processor.batch_decode(
+        trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )[0]
     return normalize(result)
 
 
