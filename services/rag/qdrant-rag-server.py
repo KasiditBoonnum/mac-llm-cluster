@@ -33,11 +33,35 @@ except ImportError:
     HAS_DOCX = False
 
 try:
-    import pytesseract
+    from transformers import AutoModelForImageTextToText, AutoProcessor
     from PIL import Image
+    import torch
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
+
+_typhoon_processor = None
+_typhoon_model = None
+
+def _load_typhoon():
+    global _typhoon_processor, _typhoon_model
+    if _typhoon_processor is None:
+        model_id = 'typhoon-ai/typhoon-ocr1.5-2b'
+        _typhoon_processor = AutoProcessor.from_pretrained(model_id)
+        _typhoon_model = AutoModelForImageTextToText.from_pretrained(
+            model_id, torch_dtype=torch.float16
+        )
+        device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+        _typhoon_model = _typhoon_model.to(device)
+        _typhoon_model.eval()
+    return _typhoon_processor, _typhoon_model
+
+def _resize_for_typhoon(img: Image.Image, max_dim: int = 1800) -> Image.Image:
+    w, h = img.size
+    if max(w, h) <= max_dim:
+        return img
+    scale = max_dim / max(w, h)
+    return img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
 app = FastAPI(title="LLM Cluster RAG API")
 qdrant = QdrantClient(url="http://localhost:6333")
@@ -145,32 +169,35 @@ def extract_page_with_tables(page) -> str:
 
 
 def ocr_page_with_structure(img) -> str:
-    """OCR a page using word bounding boxes to preserve table column alignment."""
-    try:
-        data = pytesseract.image_to_data(
-            img, lang="tha+eng",
-            config="--psm 3 --oem 1",
-            output_type=pytesseract.Output.DICT,
-        )
-        lines: dict = {}
-        for i, word in enumerate(data['text']):
-            word = word.strip()
-            if not word or int(data['conf'][i]) < 20:
-                continue
-            key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
-            lines.setdefault(key, []).append(
-                (data['left'][i], data['top'][i], word)
-            )
-        sorted_lines = sorted(lines.values(), key=lambda ws: min(w[1] for w in ws))
-        result = '\n'.join(
-            ' '.join(w[2] for w in sorted(ws, key=lambda w: w[0]))
-            for ws in sorted_lines
-        )
-        return normalize(result)
-    except Exception:
-        return normalize(pytesseract.image_to_string(
-            img, lang="tha+eng", config="--psm 3 --oem 1"
-        ))
+    """OCR using Typhoon OCR 1.5 (typhoon-ai/typhoon-ocr1.5-2b)."""
+    processor, model = _load_typhoon()
+    img_input = _resize_for_typhoon(img.convert('RGB'))
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": img_input},
+                {"type": "text", "text": (
+                    "Read all text from this document image. "
+                    "Preserve the original layout. "
+                    "For tables output in markdown format. "
+                    "Output only the extracted text."
+                )},
+            ],
+        }
+    ]
+    inputs = processor.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(model.device)
+    with torch.no_grad():
+        generated_ids = model.generate(**inputs, max_new_tokens=4096)
+    trimmed = [out[len(inp):] for inp, out in zip(inputs['input_ids'], generated_ids)]
+    result = processor.batch_decode(trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+    return normalize(result)
 
 
 def extract_text(content: bytes, filename: str) -> str:

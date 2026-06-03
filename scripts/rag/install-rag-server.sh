@@ -25,9 +25,10 @@ if ! curl -sf http://localhost:6333/healthz > /dev/null; then
 fi
 echo "    Qdrant OK (localhost:6333)"
 
-# 2. Install Tesseract OCR with Thai + English language packs
-echo "==> Installing Tesseract OCR..."
-brew install tesseract tesseract-lang --quiet 2>/dev/null || true
+# 2. Install Typhoon OCR dependencies
+echo "==> Installing Typhoon OCR dependencies..."
+"$PYTHON" -m pip install transformers torch torchvision \
+    --break-system-packages --quiet
 
 # 3. Install RAG server Python packages
 echo "==> Installing RAG server dependencies..."
