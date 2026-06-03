@@ -61,9 +61,69 @@ def verify_key(credentials: HTTPAuthorizationCredentials = Depends(security)):
     return credentials.credentials
 
 
+def _get_all_filenames() -> list[str]:
+    """Return all unique filenames stored in Qdrant."""
+    names: set[str] = set()
+    offset = None
+    while True:
+        batch, next_offset = _qdrant.scroll(
+            collection_name=RAG_COLLECTION,
+            offset=offset, limit=500,
+            with_payload=True, with_vectors=False,
+        )
+        for r in batch:
+            fn = (r.payload or {}).get("filename")
+            if fn:
+                names.add(fn)
+        if next_offset is None:
+            break
+        offset = next_offset
+    return list(names)
+
+
+def _chunks_for_file(filename: str) -> list[str]:
+    """Fetch all chunks for a specific filename, ordered by chunk index."""
+    records = []
+    offset = None
+    while True:
+        batch, next_offset = _qdrant.scroll(
+            collection_name=RAG_COLLECTION,
+            offset=offset, limit=500,
+            with_payload=True, with_vectors=False,
+        )
+        for r in batch:
+            if (r.payload or {}).get("filename") == filename:
+                records.append(r)
+        if next_offset is None:
+            break
+        offset = next_offset
+    records.sort(key=lambda r: (r.payload or {}).get("chunk", 0))
+    return [r.payload.get("text", "") for r in records if r.payload]
+
+
 def retrieve_context(query: str) -> str:
-    """Search Qdrant for relevant chunks; returns empty string if nothing passes threshold."""
+    """Search Qdrant for relevant chunks.
+
+    If the query mentions a specific filename, pull all chunks from that file
+    directly. Otherwise fall back to semantic similarity search.
+    """
     try:
+        query_lower = query.lower()
+        filenames = _get_all_filenames()
+        matched_file = None
+        for fn in filenames:
+            stem = fn.rsplit(".", 1)[0].lower() if "." in fn else fn.lower()
+            if stem in query_lower:
+                matched_file = fn
+                break
+
+        if matched_file:
+            chunks = _chunks_for_file(matched_file)
+            if chunks:
+                parts = [f"[Source: {matched_file}]\n{c}" for c in chunks]
+                return "\n\n---\n".join(parts)
+
+        # Semantic fallback
         vector = _embedder.encode(query).tolist()
         hits = _qdrant.query_points(
             collection_name=RAG_COLLECTION,
@@ -149,12 +209,13 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
     messages = req.messages
 
     if req.use_rag and RAG_AVAILABLE:
-        original_len = len(messages)
+        before = messages[0].get("content", "") if messages else ""
         messages = inject_rag(messages)
-        if len(messages) > original_len or (messages and messages[0].get("role") == "system"):
+        after = messages[0].get("content", "") if messages else ""
+        if after != before:
             log(f"[2] RAG injected      context found in Qdrant")
         else:
-            log(f"[2] RAG searched      no relevant chunks above threshold")
+            log(f"[2] RAG searched      no relevant chunks found")
     else:
         log(f"[2] RAG skipped")
 
