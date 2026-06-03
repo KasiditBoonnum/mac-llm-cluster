@@ -30,8 +30,8 @@ except Exception:
     PII_AVAILABLE = False
 
 RAG_COLLECTION = "documents"
-RAG_TOP_K = 3
-RAG_THRESHOLD = 0.45
+RAG_TOP_K = 5
+RAG_THRESHOLD = 0.25
 
 app = FastAPI(title="LLM Cluster Gateway")
 security = HTTPBearer(auto_error=False)
@@ -78,7 +78,8 @@ def retrieve_context(query: str) -> str:
             for h in hits
         ]
         return "\n\n---\n".join(parts)
-    except Exception:
+    except Exception as e:
+        logging.warning(f"[RAG] retrieve_context failed: {e}")
         return ""
 
 
@@ -148,8 +149,12 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
     messages = req.messages
 
     if req.use_rag and RAG_AVAILABLE:
+        original_len = len(messages)
         messages = inject_rag(messages)
-        log(f"[2] RAG injected      context added from Qdrant")
+        if len(messages) > original_len or (messages and messages[0].get("role") == "system"):
+            log(f"[2] RAG injected      context found in Qdrant")
+        else:
+            log(f"[2] RAG searched      no relevant chunks above threshold")
     else:
         log(f"[2] RAG skipped")
 
