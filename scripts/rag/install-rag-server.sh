@@ -27,7 +27,7 @@ echo "    Qdrant OK (localhost:6333)"
 
 # 2. Install Typhoon OCR dependencies
 echo "==> Installing Typhoon OCR dependencies..."
-"$PYTHON" -m pip install transformers torch torchvision \
+"$PYTHON" -m pip install transformers torch torchvision accelerate \
     --break-system-packages --quiet
 
 # 3. Install RAG server Python packages
