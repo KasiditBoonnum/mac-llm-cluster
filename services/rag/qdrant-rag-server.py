@@ -438,7 +438,7 @@ async def download_chunks(filename: str = Query(...)):
             collection_name=COLLECTION,
             scroll_filter=Filter(must=[FieldCondition(key="filename", match=MatchValue(value=filename))]),
             offset=offset,
-            limit=1000,
+            limit=500,
             with_payload=True,
             with_vectors=False,
         )
@@ -446,17 +446,20 @@ async def download_chunks(filename: str = Query(...)):
         if next_offset is None:
             break
         offset = next_offset
-    records.sort(key=lambda r: r.payload.get("chunk", 0))
+    records.sort(key=lambda r: (r.payload or {}).get("chunk", 0))
     lines = []
     for r in records:
-        idx = r.payload.get("chunk", "?")
-        text = r.payload.get("text", "")
-        lines.append(f"=== Chunk {idx} ===\n{text}")
-    content = "\n\n".join(lines)
-    safe_name = re.sub(r'[^\w.\-]', '_', filename)
+        payload = r.payload or {}
+        idx = payload.get("chunk", "?")
+        text = payload.get("text", "")
+        if text:
+            lines.append(f"=== Chunk {idx} ===\n{text}")
+    content = "\n\n".join(lines) if lines else "(no chunks found)"
+    safe_name = re.sub(r'[^\w.\-]', '_', filename) or "chunks"
     return PlainTextResponse(
         content=content,
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}.chunks.txt"'},
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}.chunks.txt"},
     )
 
 
