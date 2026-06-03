@@ -33,7 +33,7 @@ except ImportError:
     HAS_DOCX = False
 
 try:
-    from transformers import AutoModelForImageTextToText, AutoProcessor
+    from transformers import AutoProcessor, AutoModelForCausalLM
     from PIL import Image
     import torch
     HAS_OCR = True
@@ -47,9 +47,9 @@ def _load_typhoon():
     global _typhoon_processor, _typhoon_model
     if _typhoon_processor is None:
         model_id = 'typhoon-ai/typhoon-ocr1.5-2b'
-        _typhoon_processor = AutoProcessor.from_pretrained(model_id)
-        _typhoon_model = AutoModelForImageTextToText.from_pretrained(
-            model_id, torch_dtype=torch.float16
+        _typhoon_processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+        _typhoon_model = AutoModelForCausalLM.from_pretrained(
+            model_id, torch_dtype=torch.float16, trust_remote_code=True
         )
         device = 'mps' if torch.backends.mps.is_available() else 'cpu'
         _typhoon_model = _typhoon_model.to(device)
@@ -176,7 +176,7 @@ def ocr_page_with_structure(img) -> str:
         {
             "role": "user",
             "content": [
-                {"type": "image", "image": img_input},
+                {"type": "image"},
                 {"type": "text", "text": (
                     "Read all text from this document image. "
                     "Preserve the original layout. "
@@ -186,16 +186,11 @@ def ocr_page_with_structure(img) -> str:
             ],
         }
     ]
-    inputs = processor.apply_chat_template(
-        messages,
-        tokenize=True,
-        add_generation_prompt=True,
-        return_dict=True,
-        return_tensors="pt",
-    ).to(model.device)
+    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = processor(text=[text], images=[img_input], return_tensors="pt").to(model.device)
     with torch.no_grad():
         generated_ids = model.generate(**inputs, max_new_tokens=4096)
-    trimmed = [out[len(inp):] for inp, out in zip(inputs['input_ids'], generated_ids)]
+    trimmed = generated_ids[:, inputs['input_ids'].shape[1]:]
     result = processor.batch_decode(trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
     return normalize(result)
 
