@@ -739,7 +739,13 @@ thead th {
   text-transform: uppercase; letter-spacing: 0.07em;
   padding: 9px 12px;
   border-bottom: 2px solid var(--green);
+  user-select: none;
 }
+thead th[data-sort] { cursor: pointer; }
+thead th[data-sort]:hover { color: var(--text); }
+thead th[data-sort] .sort-arrow { margin-left: 5px; opacity: 0.3; font-style: normal; }
+thead th[data-sort].asc .sort-arrow { opacity: 1; }
+thead th[data-sort].desc .sort-arrow { opacity: 1; }
 tbody tr { transition: background 0.1s; }
 tbody tr:hover td { background: var(--panel-light); }
 tbody td {
@@ -955,10 +961,10 @@ tbody tr:last-child td { border-bottom: none; }
       <table>
         <thead>
           <tr>
-            <th>Filename</th>
-            <th>Size</th>
-            <th>Chunks</th>
-            <th>Uploaded</th>
+            <th data-sort="filename">Filename<i class="sort-arrow">&#9650;</i></th>
+            <th data-sort="file_size">Size<i class="sort-arrow">&#9650;</i></th>
+            <th data-sort="chunks">Chunks<i class="sort-arrow">&#9650;</i></th>
+            <th data-sort="uploaded_at">Uploaded<i class="sort-arrow">&#9650;</i></th>
             <th></th>
           </tr>
         </thead>
@@ -1104,6 +1110,49 @@ var allDocs = [];
 var filteredDocs = [];
 var currentPage = 1;
 var PAGE_SIZE = 10;
+var sortKey = 'uploaded_at';
+var sortDir = 'desc';
+
+function applySort(docs) {
+  return docs.slice().sort(function(a, b) {
+    var va = a[sortKey] || '';
+    var vb = b[sortKey] || '';
+    if (typeof va === 'number' && typeof vb === 'number') {
+      return sortDir === 'asc' ? va - vb : vb - va;
+    }
+    va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
+    return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+}
+
+function updateSortHeaders() {
+  document.querySelectorAll('thead th[data-sort]').forEach(function(th) {
+    th.classList.remove('asc', 'desc');
+    var arrow = th.querySelector('.sort-arrow');
+    if (th.dataset.sort === sortKey) {
+      th.classList.add(sortDir);
+      arrow.innerHTML = sortDir === 'asc' ? '&#9650;' : '&#9660;';
+    } else {
+      arrow.innerHTML = '&#9650;';
+    }
+  });
+}
+
+document.querySelectorAll('thead th[data-sort]').forEach(function(th) {
+  th.addEventListener('click', function() {
+    var key = th.dataset.sort;
+    if (sortKey === key) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortKey = key;
+      sortDir = 'asc';
+    }
+    filteredDocs = applySort(filteredDocs);
+    currentPage = 1;
+    updateSortHeaders();
+    renderTable();
+  });
+});
 
 function loadDocuments() {
   document.getElementById('doc-tbody').innerHTML =
@@ -1111,7 +1160,7 @@ function loadDocuments() {
   fetch('/documents').then(function(r) { return r.json(); }).then(function(d) {
     allDocs = d.documents || [];
     document.getElementById('stat-files').textContent = allDocs.length.toLocaleString();
-    filteredDocs = allDocs;
+    filteredDocs = applySort(allDocs);
     currentPage = 1;
     renderTable();
   }).catch(function() {
@@ -1171,7 +1220,7 @@ document.getElementById('page-last').addEventListener('click', function() {
 
 document.getElementById('filter-input').addEventListener('input', function() {
   var q = this.value.toLowerCase().trim();
-  filteredDocs = q ? allDocs.filter(function(d) { return d.filename.toLowerCase().includes(q); }) : allDocs;
+  filteredDocs = applySort(q ? allDocs.filter(function(d) { return d.filename.toLowerCase().includes(q); }) : allDocs);
   currentPage = 1;
   renderTable();
 });
