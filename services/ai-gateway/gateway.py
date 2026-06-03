@@ -61,6 +61,13 @@ def verify_key(credentials: HTTPAuthorizationCredentials = Depends(security)):
     return credentials.credentials
 
 
+try:
+    from thai_synonyms import expand as _expand_thai_query
+except ImportError:
+    def _expand_thai_query(query: str) -> list[str]:
+        return [query]
+
+
 def _get_all_filenames() -> list[str]:
     """Return all unique filenames stored in Qdrant."""
     names: set[str] = set()
@@ -123,14 +130,22 @@ def retrieve_context(query: str) -> str:
                 parts = [f"[Source: {matched_file}]\n{c}" for c in chunks]
                 return "\n\n---\n".join(parts)
 
-        # Semantic fallback
-        vector = _embedder.encode(query).tolist()
-        hits = _qdrant.query_points(
-            collection_name=RAG_COLLECTION,
-            query=vector,
-            limit=RAG_TOP_K,
-            score_threshold=RAG_THRESHOLD,
-        ).points
+        # Semantic fallback — search with original query + synonym-expanded variants
+        queries = _expand_thai_query(query)
+        seen_ids: set = set()
+        hits = []
+        for q in queries:
+            vector = _embedder.encode(q).tolist()
+            for h in _qdrant.query_points(
+                collection_name=RAG_COLLECTION,
+                query=vector,
+                limit=RAG_TOP_K,
+                score_threshold=RAG_THRESHOLD,
+            ).points:
+                if h.id not in seen_ids:
+                    seen_ids.add(h.id)
+                    hits.append(h)
+        hits = sorted(hits, key=lambda h: h.score, reverse=True)[:RAG_TOP_K]
         if not hits:
             return ""
         parts = [
