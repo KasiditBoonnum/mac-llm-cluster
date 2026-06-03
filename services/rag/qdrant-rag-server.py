@@ -23,6 +23,7 @@ import threading
 import asyncio
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import quote
 
 try:
     import fitz  # PyMuPDF
@@ -456,11 +457,11 @@ async def download_chunks(filename: str = Query(...)):
         if text:
             lines.append(f"=== Chunk {idx} ===\n{text}")
     content = "\n\n".join(lines) if lines else "(no chunks found)"
-    safe_name = re.sub(r'[^\w.\-]', '_', filename) or "chunks"
+    encoded_name = quote(filename, safe='._-')
     return PlainTextResponse(
         content=content,
         media_type="text/plain; charset=utf-8",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}.chunks.txt"},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_name}.chunks.txt"},
     )
 
 
@@ -1139,7 +1140,7 @@ function renderTable() {
       '<td class="td-date">' + fmtSize(doc.file_size) + '</td>' +
       '<td class="td-chunks">' + doc.chunks.toLocaleString() + '</td>' +
       '<td class="td-date">' + date + '</td>' +
-      '<td style="display:flex;align-items:center;gap:6px;">' +
+      '<td style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;">' +
         '<a class="btn btn-dl" href="/documents/chunks?filename=' + encodeURIComponent(doc.filename) + '" download>Chunks</a>' +
         '<button class="btn btn-del" data-filename="' + esc(doc.filename) + '">Delete</button>' +
       '</td>' +
