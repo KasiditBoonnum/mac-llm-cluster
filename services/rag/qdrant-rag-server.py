@@ -33,7 +33,7 @@ except ImportError:
     HAS_DOCX = False
 
 try:
-    from transformers import AutoModelForImageTextToText, AutoProcessor
+    from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
     from PIL import Image
     import torch
     HAS_OCR = True
@@ -66,7 +66,7 @@ def _load_typhoon():
     global _typhoon_processor, _typhoon_model
     if _typhoon_processor is None:
         model_id = 'scb10x/typhoon-ocr1.5-2b'
-        _typhoon_model = AutoModelForImageTextToText.from_pretrained(
+        _typhoon_model = Qwen3VLForConditionalGeneration.from_pretrained(
             model_id, dtype='auto', device_map='auto'
         )
         _typhoon_processor = AutoProcessor.from_pretrained(model_id)
