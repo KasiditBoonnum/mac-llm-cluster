@@ -18,6 +18,7 @@ import uuid
 import io
 import re
 import datetime
+import time
 import unicodedata
 
 try:
@@ -83,7 +84,6 @@ def _resize_for_typhoon(img: Image.Image, max_size: int = 1800) -> Image.Image:
     return img
 
 app = FastAPI(title="LLM Cluster RAG API")
-qdrant = QdrantClient(url="http://localhost:6333")
 embedder = SentenceTransformer('BAAI/bge-m3')
 
 FONTS_DIR = Path(__file__).parent / "fonts"
@@ -95,6 +95,20 @@ CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
 
 VECTOR_SIZE = len(embedder.encode("test").tolist())
+
+def _get_qdrant() -> QdrantClient:
+    for attempt in range(30):
+        try:
+            client = QdrantClient(url="http://localhost:6333")
+            client.get_collections()
+            return client
+        except Exception:
+            if attempt == 0:
+                print("Waiting for Qdrant...", flush=True)
+            time.sleep(2)
+    raise RuntimeError("Qdrant not available after 60s")
+
+qdrant = _get_qdrant()
 
 try:
     info = qdrant.get_collection(COLLECTION)
