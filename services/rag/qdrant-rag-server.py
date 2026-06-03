@@ -436,13 +436,14 @@ async def download_chunks(filename: str = Query(...)):
     while True:
         batch, next_offset = qdrant.scroll(
             collection_name=COLLECTION,
-            scroll_filter=Filter(must=[FieldCondition(key="filename", match=MatchValue(value=filename))]),
             offset=offset,
             limit=500,
             with_payload=True,
             with_vectors=False,
         )
-        records.extend(batch)
+        for r in batch:
+            if (r.payload or {}).get("filename") == filename:
+                records.append(r)
         if next_offset is None:
             break
         offset = next_offset
@@ -791,14 +792,14 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 5px 13px; font-size: 15px;
 }
 .btn-del:hover:not(:disabled) { background: var(--red-dim); border-color: var(--red); }
-.btn-dl {
+.btn.btn-dl {
   background: transparent;
   border: 1px solid rgba(99,179,237,0.35);
   color: #63b3ed;
-  padding: 5px 13px; font-size: 15px;
-  text-decoration: none; display: inline-block;
+  padding: 3px 9px; font-size: 12px;
+  text-decoration: none;
 }
-.btn-dl:hover { background: rgba(99,179,237,0.1); border-color: #63b3ed; }
+.btn.btn-dl:hover { background: rgba(99,179,237,0.1); border-color: #63b3ed; }
 
 /* ── Search ── */
 .search-row { display: flex; gap: 10px; margin-bottom: 18px; }
@@ -1138,8 +1139,8 @@ function renderTable() {
       '<td class="td-date">' + fmtSize(doc.file_size) + '</td>' +
       '<td class="td-chunks">' + doc.chunks.toLocaleString() + '</td>' +
       '<td class="td-date">' + date + '</td>' +
-      '<td>' +
-        '<a class="btn btn-dl" href="/documents/chunks?filename=' + encodeURIComponent(doc.filename) + '" download>Chunks</a> ' +
+      '<td style="display:flex;align-items:center;gap:6px;">' +
+        '<a class="btn btn-dl" href="/documents/chunks?filename=' + encodeURIComponent(doc.filename) + '" download>Chunks</a>' +
         '<button class="btn btn-del" data-filename="' + esc(doc.filename) + '">Delete</button>' +
       '</td>' +
       '</tr>';
