@@ -298,6 +298,9 @@ def _split_html_table(table_html: str) -> list[str]:
 
 def chunk_text(text: str) -> list[str]:
     """Chunk text; keeps markdown tables intact and splits HTML tables at row boundaries."""
+    # Strip OCR markup that adds noise to embeddings
+    text = re.sub(r'<figure>.*?</figure>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<page_number>.*?</page_number>', '', text, flags=re.DOTALL | re.IGNORECASE)
     # normalise HTML table whitespace so regex can find row boundaries
     text = re.sub(r'</tr>\s*<tr>', '</tr><tr>', text)
     sections = re.split(r'\n{2,}', text)
