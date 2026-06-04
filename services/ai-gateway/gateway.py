@@ -152,6 +152,7 @@ def retrieve_context(query: str) -> str:
 
         # Semantic fallback — search with original query + synonym-expanded variants
         queries = _expand_thai_query(query)
+        logging.info(f"[RAG] expand  variants={len(queries)}")
         seen_ids: set = set()
         hits = []
         for q in queries:
