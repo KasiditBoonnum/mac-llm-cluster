@@ -168,6 +168,11 @@ def retrieve_context(query: str) -> str:
         hits = sorted(hits, key=lambda h: h.score, reverse=True)[:RAG_TOP_K]
         if not hits:
             return ""
+        for h in hits:
+            logging.info(
+                f"[RAG] chunk  score={h.score:.3f}  file={h.payload.get('filename','?')}  "
+                f"chunk={h.payload.get('chunk','?')}"
+            )
         parts = [
             f"[Source: {h.payload.get('filename', 'unknown')}]\n{h.payload.get('text', '')}"
             for h in hits
