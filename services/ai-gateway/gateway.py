@@ -27,7 +27,7 @@ try:
     _analyzer = AnalyzerEngine()
     _anonymizer = AnonymizerEngine()
     PII_AVAILABLE = True
-except Exception:
+except BaseException:
     PII_AVAILABLE = False
 
 RAG_COLLECTION = "documents"
