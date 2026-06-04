@@ -4,6 +4,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+import asyncio
 import requests
 import logging
 import time
@@ -40,6 +41,25 @@ LITELLM_URL = "http://localhost:8083"        # ollama models via LiteLLM
 EXO_URL     = "http://llm-01.local:5678"    # exo direct (managed by LaunchAgent)
 EXO_MODEL   = "mlx-community/Qwen3.6-35B-A3B-8bit"
 API_KEY_FILE = Path(__file__).parent / "api_key.txt"
+
+# One semaphore per machine — enforces 1 concurrent inference task per node
+_MACHINE_SEM = {
+    "llm-01": asyncio.Semaphore(1),  # localhost:11434
+    "llm-02": asyncio.Semaphore(1),  # localhost:11435
+    "llm-03": asyncio.Semaphore(1),  # localhost:11436
+}
+
+_MODEL_MACHINE = {
+    "phi4:latest":                        "llm-01",
+    "qwen3:4b-q4_K_M":                   "llm-01",
+    "qwen3:8b-q4_K_M":                   "llm-01",
+    "qwen3:14b-q4_K_M":                  "llm-01",
+    "qwen2.5:32b-instruct-q4_K_M":       "llm-02",
+    "qwen3:30b-a3b-q4_K_M":              "llm-02",
+    "qwen2.5:32b-instruct-q4_K_M-node3": "llm-03",
+    "qwen3:32b-q4_K_M":                  "llm-03",
+    "deepseek-coder:33b-instruct-q4_K_M":"llm-03",
+}
 
 
 def is_exo_model(model: str) -> bool:
@@ -252,9 +272,17 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
             "headers": {"Authorization": "Bearer sk-llm-cluster"},
             "timeout": 600,
         }
-    t0 = time.time()
-    resp = requests.post(f"{target_url}/v1/chat/completions", **forward_kwargs)
-    elapsed = time.time() - t0
+
+    machine = _MODEL_MACHINE.get(req.model)
+    sem = _MACHINE_SEM.get(machine) if machine else None
+    if sem:
+        log(f"[4a] Queue            waiting for {machine} slot")
+    async with (sem if sem else asyncio.Semaphore(1)):
+        if sem:
+            log(f"[4b] Queue            acquired {machine} slot")
+        t0 = time.time()
+        resp = requests.post(f"{target_url}/v1/chat/completions", **forward_kwargs)
+        elapsed = time.time() - t0
     if resp.status_code == 200:
         data = resp.json()
         usage = data.get("usage", {})
@@ -285,7 +313,12 @@ async def chat(req: ChatRequest, key: str = Depends(verify_key)):
 async def list_models(key: str = Depends(verify_key)):
     return {"object": "list", "data": [
         {"id": "phi4:latest",                        "object": "model", "owned_by": "llm-01"},
+        {"id": "qwen3:4b-q4_K_M",                   "object": "model", "owned_by": "llm-01"},
+        {"id": "qwen3:8b-q4_K_M",                   "object": "model", "owned_by": "llm-01"},
+        {"id": "qwen3:14b-q4_K_M",                  "object": "model", "owned_by": "llm-01"},
         {"id": "qwen2.5:32b-instruct-q4_K_M",        "object": "model", "owned_by": "llm-02,llm-03"},
+        {"id": "qwen3:30b-a3b-q4_K_M",              "object": "model", "owned_by": "llm-02"},
+        {"id": "qwen3:32b-q4_K_M",                  "object": "model", "owned_by": "llm-03"},
         {"id": "deepseek-coder:33b-instruct-q4_K_M", "object": "model", "owned_by": "llm-03"},
         {"id": "exo:Qwen3.6-35B-A3B-8bit",           "object": "model", "owned_by": "llm-01,llm-02,llm-03"},
     ]}
