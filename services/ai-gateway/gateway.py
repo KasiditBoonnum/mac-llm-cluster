@@ -32,7 +32,7 @@ except Exception:
 
 RAG_COLLECTION = "documents"
 RAG_TOP_K = 5
-RAG_THRESHOLD = 0.25
+RAG_THRESHOLD = 0.20
 
 app = FastAPI(title="LLM Cluster Gateway")
 security = HTTPBearer(auto_error=False)
