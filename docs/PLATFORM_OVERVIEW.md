@@ -771,7 +771,7 @@ Both the LiteLLM proxy and the Queue Manager on Node 1 reach remote Ollama insta
 |-----------|---------|------|
 | Ollama, Exo, Qdrant, Prometheus, Grafana, LiteLLM, Presidio, FastAPI, React, all AI models | MIT / Apache 2.0 / open weights | **Free** |
 
-No per-query costs. No subscriptions. No license fees. Only ongoing cost: electricity (~30 W per node).
+No per-query costs. No subscriptions. No license fees. Only ongoing cost: electricity (~100W per node at peak load).
 
 ## Comparison
 
