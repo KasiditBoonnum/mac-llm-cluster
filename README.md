@@ -154,6 +154,4 @@ Every API request through the Gateway:
 
 ## Notes
 
-- **This dev MacBook is not connected to the live cluster** - push changes and deploy via SSH.
-- **Exo patch required:** After installing Exo, set `EXO_MAX_INSTANCE_RETRIES = 50000` in `~/exo-source/src/exo/shared/constants.py` (default 5 is too low for large model downloads).
-- **Discord bot:** Code and LaunchAgent are ready in `services/chatops/` - set `DISCORD_BOT_TOKEN` to activate.
+- **Exo patch required:** After installing Exo, set `EXO_MAX_INSTANCE_RETRIES = 50000` in `~/exo-source/src/exo/shared/constants.py`.
